@@ -1,0 +1,67 @@
+﻿  MainFrm.cpp
+  pch.cpp
+  AniEdit.cpp
+  GameEditor.cpp
+  GameEditorDoc.cpp
+  GameEditorView.cpp
+  AttackState.cpp
+  ClientCreateSystem.cpp
+  Client.cpp
+  ColossusMode.cpp
+  MainGameMode.cpp
+  StartGameMode.cpp
+  TileMode.cpp
+C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEditor\Include\Client\GameMode\TileMode.cpp(778,20): warning C4244: '*=': conversion from 'float' to 'int', possible loss of data
+  Arrow.cpp
+  Bow.cpp
+  Bullet.cpp
+  Colossus.cpp
+  Effect.cpp
+  IceBall.cpp
+  Icicle.cpp
+  Minion.cpp
+  Player.cpp
+C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEditor\Include\Client\Object\Player.cpp(332,40): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEditor\Include\Client\Object\Player.cpp(332,28): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+  Button.cpp
+  CheckObj.cpp
+  Missile.cpp
+  RadioObj.cpp
+  Compiling...
+  UIBar.cpp
+  DetailDlg.cpp
+  DieState.cpp
+  IdleState.cpp
+  SleepState.cpp
+  State.cpp
+  StopState.cpp
+  ViewManager.cpp
+  WorldDlg.cpp
+     Creating library ../Bin/GameEditor.lib and object ../Bin/GameEditor.exp
+  Generating code
+  151 of 9014 functions ( 1.7%) were compiled, the rest were copied from previous compilation.
+    15 functions were new in current compilation
+    332 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+DirectXTex.lib(BC.obj) : warning LNK4099: PDB 'DirectXTex.pdb' was not found with 'DirectXTex.lib(BC.obj)' or at 'C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEditor\Bin\DirectXTex.pdb'; linking object as if no debug info
+DirectXTex.lib(BC4BC5.obj) : warning LNK4099: PDB 'DirectXTex.pdb' was not found with 'DirectXTex.lib(BC4BC5.obj)' or at 'C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEditor\Bin\DirectXTex.pdb'; linking object as if no debug info
+DirectXTex.lib(BC6HBC7.obj) : warning LNK4099: PDB 'DirectXTex.pdb' was not found with 'DirectXTex.lib(BC6HBC7.obj)' or at 'C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEditor\Bin\DirectXTex.pdb'; linking object as if no debug info
+DirectXTex.lib(DirectXTexCompress.obj) : warning LNK4099: PDB 'DirectXTex.pdb' was not found with 'DirectXTex.lib(DirectXTexCompress.obj)' or at 'C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEditor\Bin\DirectXTex.pdb'; linking object as if no debug info
+DirectXTex.lib(DirectXTexConvert.obj) : warning LNK4099: PDB 'DirectXTex.pdb' was not found with 'DirectXTex.lib(DirectXTexConvert.obj)' or at 'C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEditor\Bin\DirectXTex.pdb'; linking object as if no debug info
+DirectXTex.lib(DirectXTexD3D11.obj) : warning LNK4099: PDB 'DirectXTex.pdb' was not found with 'DirectXTex.lib(DirectXTexD3D11.obj)' or at 'C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEditor\Bin\DirectXTex.pdb'; linking object as if no debug info
+DirectXTex.lib(DirectXTexDDS.obj) : warning LNK4099: PDB 'DirectXTex.pdb' was not found with 'DirectXTex.lib(DirectXTexDDS.obj)' or at 'C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEditor\Bin\DirectXTex.pdb'; linking object as if no debug info
+DirectXTex.lib(DirectXTexImage.obj) : warning LNK4099: PDB 'DirectXTex.pdb' was not found with 'DirectXTex.lib(DirectXTexImage.obj)' or at 'C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEditor\Bin\DirectXTex.pdb'; linking object as if no debug info
+DirectXTex.lib(DirectXTexMipMaps.obj) : warning LNK4099: PDB 'DirectXTex.pdb' was not found with 'DirectXTex.lib(DirectXTexMipMaps.obj)' or at 'C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEditor\Bin\DirectXTex.pdb'; linking object as if no debug info
+DirectXTex.lib(DirectXTexTGA.obj) : warning LNK4099: PDB 'DirectXTex.pdb' was not found with 'DirectXTex.lib(DirectXTexTGA.obj)' or at 'C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEditor\Bin\DirectXTex.pdb'; linking object as if no debug info
+DirectXTex.lib(DirectXTexUtil.obj) : warning LNK4099: PDB 'DirectXTex.pdb' was not found with 'DirectXTex.lib(DirectXTexUtil.obj)' or at 'C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEditor\Bin\DirectXTex.pdb'; linking object as if no debug info
+DirectXTex.lib(DirectXTexWIC.obj) : warning LNK4099: PDB 'DirectXTex.pdb' was not found with 'DirectXTex.lib(DirectXTexWIC.obj)' or at 'C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEditor\Bin\DirectXTex.pdb'; linking object as if no debug info
+  GameEditor.vcxproj -> C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEditor\Bin\GameEditor.exe
+  0 File(s) copied
+  0 File(s) copied
+  0 File(s) copied
+  0 File(s) copied
+  0 File(s) copied
+  0 File(s) copied
+  0 File(s) copied
+  0 File(s) copied
+  0 File(s) copied

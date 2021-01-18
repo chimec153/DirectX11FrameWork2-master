@@ -1,0 +1,4 @@
+C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEngine\Bin\VertexShader.cso
+C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEngine\Bin\Collider.cso
+C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEngine\Bin\Inst.cso
+C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEngine\Bin\UI.cso

@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <ProjectOutputs />
+  <ContentFiles>
+    <ContentFile>
+      <FullPath>C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEngine\Bin\Collider.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEngine\Bin\Inst.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEngine\Bin\UI.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEngine\Bin\VertexShader.cso</FullPath>
+    </ContentFile>
+  </ContentFiles>
+  <SatelliteDlls />
+  <NonRecipeFileRefs />
+</Project>
