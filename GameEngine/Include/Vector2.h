@@ -100,3 +100,4 @@ typedef union __declspec(dllexport) _tagVector2
 
 }Vector2, *PVector2;
 
+const _tagVector2 operator * (float f, const _tagVector2& v);

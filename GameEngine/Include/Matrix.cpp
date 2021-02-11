@@ -155,6 +155,11 @@ void _tagMatrix::RotateAxis(const _tagVector3& v, float fAngle)
 	m = DirectX::XMMatrixRotationAxis(v1, DegToRad(fAngle));
 }
 
+void _tagMatrix::RotationQuaternion(const _tagVector4& q)
+{
+	m = DirectX::XMMatrixRotationQuaternion(q.Convert());
+}
+
 _tagMatrix _tagMatrix::StaticIdentity()
 {
 	return DirectX::XMMatrixIdentity();
@@ -228,4 +233,9 @@ _tagMatrix _tagMatrix::StaticRotateZ(float z)
 _tagMatrix _tagMatrix::StaticRotateAxis(const _tagVector3& _v, float fAngle)
 {
 	return DirectX::XMMatrixRotationAxis(_v.Convert(), DegToRad(fAngle));
+}
+
+_tagMatrix _tagMatrix::StaticRotationQuaternion(const _tagVector4& q)
+{
+	return _tagMatrix(DirectX::XMMatrixRotationQuaternion(q.Convert()));
 }

@@ -9,65 +9,99 @@
 #include "Component/Sound.h"
 #include "Resource/Material.h"
 #include "Resource/ShaderManager.h"
+#include "Component/Particle.h"
+#include "../../State.h"
+#include "Component/Mesh2DComponent.h"
+#include "Bullet.h"
+#include "Player.h"
+#include "../BossManager.h"
+#include "InputObj.h"
+#include "../GameMode/ColossusMode.h"
+#include "Engine.h"
+
+float CColossus::m_fLimitDist = 80.f;
+float CColossus::m_fLimitDist2 = 160.f;
+float CColossus::m_fHandSpeed = 300.f;
+float CColossus::m_fInertiaLimit = 0.5f;
+float CColossus::m_fMoveSpeed = 400.f;
+float CColossus::m_fAccel = 500.f;
 
 CColossus::CColossus()	:
 	m_pHead(nullptr),
 	m_pBody(nullptr),
 	m_pLeftHand(nullptr),
 	m_pRightHand(nullptr),
-	m_pLeftShoulder(nullptr),
-	m_pRightShoulder(nullptr),
 	m_pLight(nullptr),
 	m_pLeftHandShadow(nullptr),
 	m_pRightHandShadow(nullptr),
-	m_eState(TITAN_STATE::SLEEP),
 	m_bRising(false),
 	m_bLeft(false),
 	m_eAttackStage(ATTACK_STAGE::IDLE),
 	m_fReadyTime(0.f),
-	m_fDownDist(64.f),
-	m_fLimitDist(64.f),
-	m_fHandSpeed(420.f),
+	m_fDownDist(m_fLimitDist2),
 	m_fInertiaTime(0.f),
-	m_fInertiaLimit(0.5f),
-	m_fMoveSpeed(120.f)
+	m_pParticleLeft(nullptr),
+	m_bSleep(true),
+	m_pBGM(nullptr),
+	m_pBGM2(nullptr),
+	m_fSpeed(0.f)
 {
+	SetBossType(BOSS_TYPE::COLOSSUS);
 }
 
 CColossus::CColossus(const CColossus& obj)	:
-	CObj(obj)
+	CSoulMonster(obj)
 	, m_pHead(static_cast<CSpriteComponent*>(FindSceneComponent("Head")))
 	, m_pBody(static_cast<CSpriteComponent*>(FindSceneComponent("Body")))
 	, m_pLeftHand(static_cast<CSpriteComponent*>(FindSceneComponent("LeftHand")))
 	, m_pRightHand(static_cast<CSpriteComponent*>(FindSceneComponent("RightHand")))
-	, m_pLeftShoulder(static_cast<CSpriteComponent*>(FindSceneComponent("LeftShoulder")))
-	, m_pRightShoulder(static_cast<CSpriteComponent*>(FindSceneComponent("RightShoulder")))
 	, m_pLight(static_cast<CSpriteComponent*>(FindSceneComponent("Light")))
 	, m_pLeftHandShadow(static_cast<CSpriteComponent*>(FindSceneComponent("LeftHandShadow")))
 	, m_pRightHandShadow(static_cast<CSpriteComponent*>(FindSceneComponent("RightHandShadow")))
-	, m_eState(TITAN_STATE::SLEEP)
 	, m_bRising(false)
 	, m_eAttackStage(ATTACK_STAGE::IDLE)
 	, m_bLeft(false)
 	, m_fReadyTime(0.f)
 	, m_fDownDist(obj.m_fDownDist)
-	, m_fLimitDist(obj.m_fLimitDist)
-	, m_fHandSpeed(obj.m_fHandSpeed)
 	, m_fInertiaTime(0.f)
-	, m_fInertiaLimit(obj.m_fInertiaLimit)
-	, m_fMoveSpeed(obj.m_fMoveSpeed)
+	, m_pParticleLeft((CParticle*)FindSceneComponent("DustLeft"))
+	, m_pParticleRight((CParticle*)FindSceneComponent("DustRight"))
+	, m_bSleep(obj.m_bSleep)
+	, m_pBGM((CSound*)FindSceneComponent("BGM"))
+	, m_pBGM2((CSound*)FindSceneComponent("BGM2"))
 {
-	CColliderRect* pRC = m_pBody->FindComByType<CColliderRect>();
+	CColliderRect* pBodyRC = (CColliderRect*)FindSceneComponent("ColossusBody");
+	pBodyRC->SetCallBack<CColossus>(COLLISION_STATE::INIT, this, &CColossus::ColStart);
+	pBodyRC->SetCallBack<CColossus>(COLLISION_STATE::STAY, this, &CColossus::ColStay);
+	pBodyRC->SetCallBack<CColossus>(COLLISION_STATE::END, this, &CColossus::ColLast);
+	SAFE_RELEASE(pBodyRC);
 
-	pRC->SetCallBack<CColossus>(COLLISION_STATE::INIT, this, &CColossus::ColStart);
-	pRC->SetCallBack<CColossus>(COLLISION_STATE::INIT, this, &CColossus::ColStay);
-	pRC->SetCallBack<CColossus>(COLLISION_STATE::INIT, this, &CColossus::ColLast);
-
-	SAFE_RELEASE(pRC);
+	CColliderRect* pHeadRC = (CColliderRect*)FindSceneComponent("HeadBody");
+	pHeadRC->SetCallBack<CColossus>(COLLISION_STATE::INIT, this, &CColossus::ColStart);
+	pHeadRC->SetCallBack<CColossus>(COLLISION_STATE::STAY, this, &CColossus::ColStay);
+	pHeadRC->SetCallBack<CColossus>(COLLISION_STATE::END, this, &CColossus::ColLast);
+	SAFE_RELEASE(pHeadRC);
 
 	m_pHead->AddCallBack("Cry", "Cry", this, &CColossus::Cry);
 	m_pHead->AddCallBack("Cry", "CryEnd", this, &CColossus::ReturnCam);
 	m_pHead->AddCallBack("Cry", "ShakeEnd", this, &CColossus::StopShaking);
+
+	CColliderRect* pLHRC = m_pLeftHand->FindComByType<CColliderRect>();
+
+	pLHRC->SetCallBack<CColossus>(COLLISION_STATE::INIT, this, &CColossus::ColStart);
+	pLHRC->SetCallBack<CColossus>(COLLISION_STATE::STAY, this, &CColossus::ColStay);
+	pLHRC->SetCallBack<CColossus>(COLLISION_STATE::END, this, &CColossus::ColLast);
+
+	SAFE_RELEASE(pLHRC);
+
+	CColliderRect* pRHRC = m_pRightHand->FindComByType<CColliderRect>();
+
+	pRHRC->SetCallBack<CColossus>(COLLISION_STATE::INIT, this, &CColossus::ColStart);
+	pRHRC->SetCallBack<CColossus>(COLLISION_STATE::STAY, this, &CColossus::ColStay);
+	pRHRC->SetCallBack<CColossus>(COLLISION_STATE::END, this, &CColossus::ColLast);
+
+	SAFE_RELEASE(pRHRC);
+	m_pInput->SetActionFunc<CColossus>("Z", KEY_TYPE::KT_DOWN, this, &CColossus::Cheat);
 }
 
 CColossus::~CColossus()
@@ -76,17 +110,20 @@ CColossus::~CColossus()
 	SAFE_RELEASE(m_pBody);
 	SAFE_RELEASE(m_pLeftHand);
 	SAFE_RELEASE(m_pRightHand);
-	SAFE_RELEASE(m_pLeftShoulder);
-	SAFE_RELEASE(m_pRightShoulder);
 	SAFE_RELEASE(m_pLight);
 	SAFE_RELEASE(m_pLeftHandShadow);
 	SAFE_RELEASE(m_pRightHandShadow);
+	SAFE_RELEASE(m_pParticleLeft);
+	SAFE_RELEASE(m_pParticleRight);
+	SAFE_RELEASE(m_pBGM);
+	SAFE_RELEASE(m_pBGM2);
 }
 
 bool CColossus::Init()
 {
-	if(!CObj::Init())
+	if(!CSoulMonster::Init())
 		return false;
+
 
 	CLayer* pFore = m_pScene->FindLayer("Fore");
 
@@ -99,6 +136,7 @@ bool CColossus::Init()
 	m_pLight->SetInheritScale(false);
 
 	m_pLight->AddRenderState("AlphaBlend");
+	m_pLight->AddRenderState("Silhouette");
 
 	CLayer* pGround = m_pScene->FindLayer("Ground");
 
@@ -110,21 +148,23 @@ bool CColossus::Init()
 	m_pBody->SetRelativePos(0.f, -64.f, 0.f);
 	m_pBody->SetInheritScale(false);
 
-	m_pBody->AddRenderState("Character");
+	m_pBody->AddRenderState("Silhouette");
 
-	CColliderRect* pRC = CreateComponent<CColliderRect>("ColossusBody",m_pLayer);
+	CColliderRect* pBodyRC = CreateComponent<CColliderRect>("ColossusBody",m_pLayer);
 
-	pRC->SetExtent(28.f, 12.f);
-	pRC->SetRelativePos(0.f, 8.f, 0.f);
-	pRC->SetCallBack<CColossus>(COLLISION_STATE::INIT, this, &CColossus::ColStart);
-	pRC->SetCallBack<CColossus>(COLLISION_STATE::STAY, this, &CColossus::ColStay);
-	pRC->SetCallBack<CColossus>(COLLISION_STATE::END, this, &CColossus::ColLast);
+	pBodyRC->SetExtent(28.f, 12.f);
+	pBodyRC->SetRelativePos(0.f, 8.f, 0.f);
+	pBodyRC->SetCallBack<CColossus>(COLLISION_STATE::INIT, this, &CColossus::ColStart);
+	pBodyRC->SetCallBack<CColossus>(COLLISION_STATE::STAY, this, &CColossus::ColStay);
+	pBodyRC->SetCallBack<CColossus>(COLLISION_STATE::END, this, &CColossus::ColLast);
+	pBodyRC->Enable(false);
 
-	m_pBody->AddChild(pRC);
+	m_pBody->AddChild(pBodyRC);
 
-	SAFE_RELEASE(pRC);
+	SAFE_RELEASE(pBodyRC);
 
-	m_pHead = CreateComponent<CSpriteComponent>("Head", m_pLayer);
+	m_pHead = CreateComponent<CSpriteComponent>("Head", m_pScene->FindLayer("Ground"));
+	m_pHead->CreateSprite("Sleep", "ColossusHeadSleep", LOOP_OPTION::LOOP);
 	m_pHead->CreateSprite("Idle", "ColossusHeadIdle", LOOP_OPTION::LOOP);
 	m_pHead->CreateSprite("Cry", "ColossusHeadCry", LOOP_OPTION::ONCE_RETURN);
 	m_pHead->CreateSprite("Stop", "ColossusHeadStop", LOOP_OPTION::LOOP);
@@ -132,27 +172,45 @@ bool CColossus::Init()
 	m_pHead->AddNotify("Cry", "ShakeEnd", 5);
 	m_pHead->AddNotify("Cry", "CryEnd", 7);
 
+	m_pHead->AddCallBack("Cry", "Cry", this, &CColossus::Cry);
+	m_pHead->AddCallBack("Cry", "CryEnd", this, &CColossus::ReturnCam);
+	m_pHead->AddCallBack("Cry", "ShakeEnd", this, &CColossus::StopShaking);
+
 	m_pHead->SetPivot(0.5f, 0.5f, 0.f);
 	m_pHead->SetWorldScale(64.f, 64.f, 0.f);
 	m_pHead->SetInheritScale(false);
+	m_pHead->AddRenderState("Silhouette");
+	m_pHead->AddWorldPos(0.f, -40.f, 0.f);
 
 	m_pHead->AddChild(m_pBody);
 
 	SetRootComponent(m_pHead);
 
+	CColliderRect* pHeadRC = CreateComponent<CColliderRect>("HeadBody", m_pLayer);
+
+	pHeadRC->SetExtent(48.f, 48.f);
+
+	pHeadRC->SetCallBack<CColossus>(COLLISION_STATE::INIT, this, &CColossus::ColStart);
+	pHeadRC->SetCallBack<CColossus>(COLLISION_STATE::STAY, this, &CColossus::ColStay);
+	pHeadRC->SetCallBack<CColossus>(COLLISION_STATE::END, this, &CColossus::ColLast);
+
+	m_pHead->AddChild(pHeadRC);
+
+	SAFE_RELEASE(pHeadRC);
+
 	CLayer* pZero = m_pScene->FindLayer("BackDefault");
 
 	m_pLeftHand = CreateComponent<CSpriteComponent>("LeftHand", pZero);
 
-	m_pLeftHand->CreateSprite("Idle", "ColossusHandIdle", LOOP_OPTION::LOOP);
 	m_pLeftHand->CreateSprite("Down", "ColossusHandDown", LOOP_OPTION::LOOP);
+	m_pLeftHand->CreateSprite("Idle", "ColossusHandIdle", LOOP_OPTION::LOOP);
 	m_pLeftHand->CreateSprite("Up", "ColossusHandUp", LOOP_OPTION::LOOP);
-	m_pLeftHand->CreateSprite("Deffence", "ColossusHandDeffence", LOOP_OPTION::LOOP);
-	m_pLeftHand->CreateSprite("Rock", "ColossusHandRock", LOOP_OPTION::LOOP);
+	m_pLeftHand->CreateSprite("Defence", "ColossusHandDeffence", LOOP_OPTION::LOOP);
+	m_pLeftHand->CreateSprite("Rock", "ColossusHandRock", LOOP_OPTION::ONCE_RETURN);
 
 	m_pLeftHand->SetPivot(0.5f, 0.25f, 0.f);
-	m_pLeftHand->SetRelativePos(-32.f + 480.f, -80.f + 672.f, 0.f);
-	m_pLeftHand->SetWorldScale(48.f, 48.f, 0.f);
+	m_pLeftHand->SetRelativePos(400.f, 576.f, 0.f);
+	m_pLeftHand->SetWorldScale(48.f, 64.f, 0.f);
 	m_pLeftHand->SetInheritScale(false);
 	m_pLeftHand->SetInheritPos(false);
 
@@ -161,6 +219,10 @@ bool CColossus::Init()
 	CColliderRect* pLHRC = CreateComponent<CColliderRect>("LeftHandBody", m_pLayer);
 
 	pLHRC->SetExtent(40.f, 20.f);
+
+	pLHRC->SetCallBack<CColossus>(COLLISION_STATE::INIT, this, &CColossus::ColStart);
+	pLHRC->SetCallBack<CColossus>(COLLISION_STATE::STAY, this, &CColossus::ColStay);
+	pLHRC->SetCallBack<CColossus>(COLLISION_STATE::END, this, &CColossus::ColLast);
 
 	m_pLeftHand->AddChild(pLHRC);
 
@@ -174,11 +236,12 @@ bool CColossus::Init()
 
 	m_pLeftHandShadow->CreateSprite("Down", "ColossusHandDownShadow", LOOP_OPTION::LOOP);
 	m_pLeftHandShadow->CreateSprite("Up", "ColossusHandUpShadow", LOOP_OPTION::LOOP);
-	m_pLeftHandShadow->CreateSprite("Deffence", "ColossusHandDeffenceShadow", LOOP_OPTION::LOOP);
-	m_pLeftHandShadow->CreateSprite("Rock", "ColossusHandRockShadow", LOOP_OPTION::LOOP);
+	m_pLeftHandShadow->CreateSprite("Defence", "ColossusHandDeffenceShadow", LOOP_OPTION::LOOP);
+	m_pLeftHandShadow->CreateSprite("Rock", "ColossusHandRockShadow", LOOP_OPTION::ONCE_RETURN);
 
 	m_pLeftHandShadow->SetInheritScale(false);
 	m_pLeftHandShadow->AddRenderState("AlphaBlend");
+	m_pLeftHandShadow->AddRenderState("DepthNoWrite");
 
 	CMaterial* pLHSMtrl = m_pLeftHandShadow->GetMaterial();
 
@@ -192,26 +255,31 @@ bool CColossus::Init()
 
 	m_pRightHand = CreateComponent<CSpriteComponent>("RightHand", pZero);
 
-	m_pRightHand->CreateSprite("Idle", "ColossusHandIdle", LOOP_OPTION::LOOP);
 	m_pRightHand->CreateSprite("Down", "ColossusHandDown", LOOP_OPTION::LOOP);
+	m_pRightHand->CreateSprite("Idle", "ColossusHandIdle", LOOP_OPTION::LOOP);
 	m_pRightHand->CreateSprite("Up", "ColossusHandUp", LOOP_OPTION::LOOP);
-	m_pRightHand->CreateSprite("Deffence", "ColossusHandDeffence", LOOP_OPTION::LOOP);
-	m_pRightHand->CreateSprite("Rock", "ColossusHandRock", LOOP_OPTION::LOOP);
+	m_pRightHand->CreateSprite("Defence", "ColossusHandDeffence", LOOP_OPTION::LOOP);
+	m_pRightHand->CreateSprite("Rock", "ColossusHandRock", LOOP_OPTION::ONCE_RETURN);
 
 	m_pRightHand->SetPivot(0.5f, 0.25f, 0.f);
-	m_pRightHand->SetRelativePos(32.f + 480.f, -80.f + 672.f, 0.f);
-	m_pRightHand->SetWorldScale(48.f, 48.f, 0.f);
+	m_pRightHand->SetRelativePos(560.f , 576.f, 0.f);
+	m_pRightHand->SetWorldScale(48.f, 64.f, 0.f);
 	m_pRightHand->SetInheritScale(false);
 	m_pRightHand->SetWorldRotY(180.f);
 	m_pRightHand->SetInheritPos(false);
 
 	m_pRightHand->AddRenderState("ForeGround");
+	m_pRightHand->AddRenderState("NoCullBack");
 
 	m_pHead->AddChild(m_pRightHand);
 
 	CColliderRect* pRHRC = CreateComponent<CColliderRect>("RightHandBody", m_pLayer);
 
 	pRHRC->SetExtent(40.f, 20.f);
+
+	pRHRC->SetCallBack<CColossus>(COLLISION_STATE::INIT, this, &CColossus::ColStart);
+	pRHRC->SetCallBack<CColossus>(COLLISION_STATE::STAY, this, &CColossus::ColStay);
+	pRHRC->SetCallBack<CColossus>(COLLISION_STATE::END, this, &CColossus::ColLast);
 
 	m_pRightHand->AddChild(pRHRC);
 
@@ -225,11 +293,13 @@ bool CColossus::Init()
 
 	m_pRightHandShadow->CreateSprite("Down", "ColossusHandDownShadow", LOOP_OPTION::LOOP);
 	m_pRightHandShadow->CreateSprite("Up", "ColossusHandUpShadow", LOOP_OPTION::LOOP);
-	m_pRightHandShadow->CreateSprite("Deffence", "ColossusHandDeffenceShadow", LOOP_OPTION::LOOP);
-	m_pRightHandShadow->CreateSprite("Rock", "ColossusHandRockShadow", LOOP_OPTION::LOOP);
+	m_pRightHandShadow->CreateSprite("Defence", "ColossusHandDeffenceShadow", LOOP_OPTION::LOOP);
+	m_pRightHandShadow->CreateSprite("Rock", "ColossusHandRockShadow", LOOP_OPTION::ONCE_RETURN);
 
 	m_pRightHandShadow->SetInheritScale(false);
 	m_pRightHandShadow->AddRenderState("AlphaBlend");
+	m_pRightHandShadow->AddRenderState("NoCullBack");
+	m_pRightHandShadow->AddRenderState("DepthNoWrite");
 
 	CMaterial* pRHSMtrl = m_pRightHandShadow->GetMaterial();
 
@@ -239,39 +309,168 @@ bool CColossus::Init()
 
 	m_pRightHand->AddChild(m_pRightHandShadow);
 
-	m_pLeftShoulder = CreateComponent<CSpriteComponent>("LeftShoulder", m_pLayer);
-	m_pLeftShoulder->CreateSprite("Idle", "ColossusShoulderLeft", LOOP_OPTION::LOOP);
+	CSpriteComponent* pLeftShoulder = CreateComponent<CSpriteComponent>("LeftShoulder", m_pScene->FindLayer("Temp"));
+	pLeftShoulder->CreateSprite("Idle", "ColossusShoulderLeft", LOOP_OPTION::LOOP);
 
-	m_pLeftShoulder->SetPivot(0.5f, 0.5f, 0.f);
-	m_pLeftShoulder->SetRelativePos(-40.f, -24.f, 0.f);
-	m_pLeftShoulder->SetWorldScale(48.f, 48.f, 0.f);
-	m_pLeftShoulder->SetInheritScale(false);
+	pLeftShoulder->SetPivot(0.5f, 0.5f, 0.f);
+	pLeftShoulder->SetRelativePos(-40.f, -32.f, 0.f);
+	pLeftShoulder->SetWorldScale(48.f, 48.f, 0.f);
+	pLeftShoulder->SetInheritScale(false);
+	pLeftShoulder->AddRenderState("Silhouette");
 
-	m_pHead->AddChild(m_pLeftShoulder);
+	m_pHead->AddChild(pLeftShoulder);
 
-	m_pRightShoulder = CreateComponent<CSpriteComponent>("RightShoulder", m_pLayer);
-	m_pRightShoulder->CreateSprite("Idle", "ColossusShoulderRight", LOOP_OPTION::LOOP);
+	SAFE_RELEASE(pLeftShoulder);
 
-	m_pRightShoulder->SetPivot(0.5f, 0.5f, 0.f);
-	m_pRightShoulder->SetRelativePos(40.f, -24.f, 0.f);
-	m_pRightShoulder->SetWorldScale(48.f, 48.f, 0.f);
-	m_pRightShoulder->SetInheritScale(false);
+	CSpriteComponent* pRightShoulder = CreateComponent<CSpriteComponent>("RightShoulder", m_pScene->FindLayer("Temp"));
+	pRightShoulder->CreateSprite("Idle", "ColossusShoulderRight", LOOP_OPTION::LOOP);
 
-	m_pHead->AddChild(m_pRightShoulder);
+	pRightShoulder->SetPivot(0.5f, 0.5f, 0.f);
+	pRightShoulder->SetRelativePos(40.f, -32.f, 0.f);
+	pRightShoulder->SetWorldScale(48.f, 48.f, 0.f);
+	pRightShoulder->SetInheritScale(false);
+	pRightShoulder->AddRenderState("Silhouette");
+
+	m_pHead->AddChild(pRightShoulder);
+
+	SAFE_RELEASE(pRightShoulder);
 
 	m_pHead->AddChild(m_pLight);
+
+	m_pParticleLeft = CreateComponent<CParticle>("DustLeft", m_pScene->FindLayer("Ground"));
+
+	m_pParticleLeft->AddParticle("DustCol");
+	m_pParticleLeft->AddParticle("DustColShare");
+	m_pParticleLeft->SetUVStart(64.f, 96.f);
+	m_pParticleLeft->SetUVEnd(96.f, 128.f);
+	m_pParticleLeft->SetUVSize(256.f, 256.f);
+	m_pParticleLeft->AddRenderState("DepthNoWrite");
+	m_pParticleLeft->SetSpawnLimit(0.f);
+	m_pParticleLeft->SetInheritScale(false);
+	m_pParticleLeft->SetWorldScale(1.f, 1.f, 1.f);
+	m_pParticleLeft->SetSpawnCount(0);
+
+	CMaterial* pMtrl = m_pParticleLeft->GetMaterial();
+
+	pMtrl->SetTexture(REGISTER_TYPE::RT_DIF, "Effect", 0, 1,
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY | (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
+
+	SAFE_RELEASE(pMtrl);
+
+	m_pLeftHand->AddChild(m_pParticleLeft);
+
+	CParticle* pTileDustLeft = CreateComponent<CParticle>("TileDustLeft", m_pScene->FindLayer("Ground"));
+
+	pTileDustLeft->AddParticle("TileDustCol");
+	pTileDustLeft->AddParticle("TileDustColShare");
+	pTileDustLeft->SetSpawnLimit(0.f);
+	pTileDustLeft->SetSpawnCount(0);
+	pTileDustLeft->SetUVStart(176.f, 0.f);
+	pTileDustLeft->SetUVEnd(192.f, 16.f);
+	pTileDustLeft->SetUVSize(256.f, 256.f);
+	pTileDustLeft->SetInheritScale(false);
+	pTileDustLeft->SetWorldScale(1.f, 1.f, 1.f);
+	pTileDustLeft->AddRenderState("DepthNoWrite");
+
+	pMtrl = pTileDustLeft->GetMaterial();
+
+	pMtrl->SetTexture(REGISTER_TYPE::RT_DIF, "Effect", 0, 1,
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY | (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
+
+	SAFE_RELEASE(pMtrl);
+
+	m_pLeftHand->AddChild(pTileDustLeft);
+	SAFE_RELEASE(pTileDustLeft);
+
+	m_pParticleRight = CreateComponent<CParticle>("DustRight", m_pScene->FindLayer("Ground"));
+
+	m_pParticleRight->AddParticle("DustCol");
+	m_pParticleRight->AddParticle("DustColShare");
+	m_pParticleRight->SetUVStart(64.f, 96.f);
+	m_pParticleRight->SetUVEnd(96.f, 128.f);
+	m_pParticleRight->SetUVSize(256.f, 256.f);
+	m_pParticleRight->SetSpawnLimit(0.f);
+	m_pParticleRight->SetSpawnCount(0);
+	m_pParticleRight->SetInheritScale(false);
+	m_pParticleRight->SetWorldScale(1.f, 1.f, 1.f);
+	m_pParticleRight->AddRenderState("DepthNoWrite");
+	m_pParticleRight->AddRenderState("NoCullBack");
+
+	pMtrl = m_pParticleRight->GetMaterial();
+
+	pMtrl->SetTexture(REGISTER_TYPE::RT_DIF, "Effect", 0, 1,
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY | (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
+
+	SAFE_RELEASE(pMtrl);
+
+	m_pRightHand->AddChild(m_pParticleRight);
+
+	CParticle* pTileDustRight = CreateComponent<CParticle>("TileDustRight", m_pScene->FindLayer("Ground"));
+
+	pTileDustRight->AddParticle("TileDustCol");
+	pTileDustRight->AddParticle("TileDustColShare");
+	pTileDustRight->SetSpawnLimit(0.f);
+	pTileDustRight->SetSpawnCount(0);
+	pTileDustRight->SetUVStart(176.f, 0.f);
+	pTileDustRight->SetUVEnd(192.f, 16.f);
+	pTileDustRight->SetUVSize(256.f, 256.f);
+	pTileDustRight->SetInheritScale(false);
+	pTileDustRight->SetWorldScale(1.f, 1.f, 1.f);
+	pTileDustRight->AddRenderState("DepthNoWrite");
+	pTileDustRight->AddRenderState("NoCullBack");
+
+	pMtrl = pTileDustRight->GetMaterial();
+
+	pMtrl->SetTexture(REGISTER_TYPE::RT_DIF, "Effect", 0, 1,
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY | (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
+
+	SAFE_RELEASE(pMtrl);
+
+	m_pRightHand->AddChild(pTileDustRight);
+	SAFE_RELEASE(pTileDustRight);
+
+	CMesh2DComponent* pStencil = CreateComponent<CMesh2DComponent>("Stencil", m_pScene->FindLayer("Back"));
+
+	pStencil->SetWorldScale(112.f, 128.f, 0.f);
+	pStencil->SetPivot(0.5f, 0.5f, 0.f);
+	pStencil->AddRenderState("ForeGround");
+	pStencil->SetInheritScale(false);
+	pStencil->SetWorldPos(480.f, 680.f, 0.f);
+	pStencil->SetInheritPos(false);
+
+	m_pBody->AddChild(pStencil);
+	
+	CMaterial* pStencilMtrl = pStencil->GetMaterial();
+
+	pStencilMtrl->SetDiffuseColor(1.f, 1.f, 0.f, 0.5f);
+
+	SAFE_RELEASE(pStencilMtrl);
+
+	SAFE_RELEASE(pStencil);
+
+	m_pBGM = CreateComponent<CSound>("BGM", m_pLayer);
+
+	m_pBGM->SetSceneComType(SCENE_COMPONENT_TYPE::SCT_UI);
+
+	m_pHead->AddChild(m_pBGM);
+
+	m_pBGM2 = CreateComponent<CSound>("BGM2", m_pLayer);
+
+	m_pBGM2->SetSceneComType(SCENE_COMPONENT_TYPE::SCT_UI);
+
+	m_pHead->AddChild(m_pBGM2);
 
 	return true;
 }
 
 void CColossus::Start()
 {
-	CObj::Start();
+	CSoulMonster::Start();
 }
 
 void CColossus::Update(float fTime)
 {
-	CObj::Update(fTime);
+	CSoulMonster::Update(fTime);
 
 	if (m_bRising)
 	{
@@ -280,28 +479,81 @@ void CColossus::Update(float fTime)
 		if (vPos.y >= 718.f)
 		{
 			m_bRising = false;
+
 			m_pHead->SetWorldPos(vPos.x, 718.f, vPos.z);
 			m_pHead->ChangeSequence("Cry");
+			m_pHead->SetDefaultSeq("Idle");
+
+			m_bSleep = false;
+
 		}
 
 		else
 		{
-			m_pHead->AddWorldPos(0.f, 100.f * fTime, 0.f);
+			m_pHead->AddRelativePos(0.f, 128.f * fTime, 0.f);
+
+			Vector3 vBodyDir = m_pBody->GetWorldPos() + Vector3(0.f, -32.f, 0.f) - m_pLeftHand->GetWorldPos();
+
+			vBodyDir.z = 0.f;
+
+			float fBodyDist = vBodyDir.Length();
+
+			vBodyDir /= fBodyDist;
+
+			if (fBodyDist > 5.f)
+			{
+				m_pLeftHand->AddWorldPos(vBodyDir * m_fMoveSpeed * fTime);
+			}
+
+			else
+			{
+				m_pLeftHand->AddWorldPos(vBodyDir * 5.f * fTime);
+			}
+
+			m_pLeftHand->ChangeSequence("Defence");
 		}
 	}
 
-	else
+	else if(!m_bSleep)
 	{
-		switch (m_eState)
+		Vector3 vPos = m_pHead->GetWorldPos();
+
+		static bool bCheck = false;
+
+		if (vPos.y >= 702.f)
 		{
-		case TITAN_STATE::SLEEP:
-			break;
-		case TITAN_STATE::IDLE:
+			m_pHead->AddWorldPos(0.f, -128.f * fTime, 0.f);
+			bCheck = true;
+		}
+
+		else if(bCheck)
 		{
-				SetState(TITAN_STATE::ATTACK);
+			bCheck = false;
+			m_pBGM->SetSoundAndPlay("RiseBodyLand");
+
+			CColliderRect* pRC = m_pBody->FindComByType<CColliderRect>();
+
+			pRC->Enable(true);
+
+			SAFE_RELEASE(pRC);
+		}
+
+		State eStat = GetState();
+		switch (eStat)
+		{
+		case State::IDLE:
+		{
+			m_fReadyTime += fTime;
+
+			if (m_fReadyTime >= 1.f)
+			{
+				SetState(State::ATTACK);
+
+				m_fReadyTime = 0.f;
+			}
 		}
 			break;
-		case TITAN_STATE::ATTACK:
+		case State::ATTACK:
 		{
 			switch (m_eAttackStage)
 			{
@@ -316,74 +568,61 @@ void CColossus::Update(float fTime)
 
 				if (vPos.x > GetWorldPos().x)
 				{
-					m_bLeft = false;
+					if (m_bLeft)
+					{
+						m_pRightHand->ChangeSequence("Rock");
 
-					m_pRightHand->ChangeSequence("Down");
+						m_pRightHandShadow->ChangeSequence("Rock");
 
-					m_pRightHandShadow->ChangeSequence("Rock");
-
-					m_pLeftHand->ChangeSequence("Deffence");
-
-					m_pLeftHandShadow->ChangeSequence("Deffence");
+						m_bLeft = false;
+					}
 				}
 
 				else
 				{
-					m_bLeft = true;
+					if (!m_bLeft)
+					{
+						m_bLeft = true;
 
-					m_pLeftHand->ChangeSequence("Down");
+						m_pLeftHand->ChangeSequence("Rock");
 
-					m_pLeftHandShadow->ChangeSequence("Rock");
-
-					m_pRightHand->ChangeSequence("Deffence");
-
-					m_pRightHandShadow->ChangeSequence("Deffence");
+						m_pLeftHandShadow->ChangeSequence("Rock");
+					}
 				}
 
 				SAFE_RELEASE(pObj);
 
-				m_eAttackStage = ATTACK_STAGE::FIND;
+				m_fReadyTime += fTime;
+
+				if (m_fReadyTime >= 1.f)
+				{
+					m_eAttackStage = ATTACK_STAGE::FIND;
+					m_fReadyTime = 0.f;
+				}
 			}
-				break;
+			break;
 			case ATTACK_STAGE::FIND:
 			{
 				m_fReadyTime += fTime;
 
 				CObj* pObj = m_pScene->GetGameMode()->GetPlayer();
 
-				Vector3 vObjPos = pObj->GetWorldPos() + Vector3(0.f, m_fLimitDist, 0.f);
+				Vector3 vObjPos = pObj->GetWorldPos() + Vector3(0.f, m_fLimitDist2, 0.f);
 
 				Vector3 vPos = {};
 
 				if (m_bLeft)
 				{
-					vPos = m_pLeftHand->GetWorldPos();
-
-					Vector3 vDir = vObjPos - vPos;
-
-					float fLength = vDir.Length();
-
-					if (fLength < 10.f)
-					{
-						m_eAttackStage = ATTACK_STAGE::READY;
-
-					}
-
-					else if (fLength < m_fMoveSpeed)
-					{
-						m_pLeftHand->AddWorldPos(vDir / fLength * m_fMoveSpeed * fTime);
-					}
-
-					else
-					{
-						m_pLeftHand->AddWorldPos(vDir * fTime);
-					}
+					m_pLeftHand->AddWorldPos(0.f, m_fMoveSpeed * fTime, 0.f);
 
 					m_fDownDist -= fTime * m_fMoveSpeed;
 
-					if (m_fDownDist <= 0.f)
+					if (m_fDownDist <= m_fLimitDist2 - m_fLimitDist)
 					{
-						m_fDownDist = 0.f;
+						m_fDownDist = m_fLimitDist2 - m_fLimitDist;
+						m_eAttackStage = ATTACK_STAGE::READY;
+
+						m_vTargetPos = pObj->GetWorldPos();
 					}
 
 					else
@@ -401,52 +640,20 @@ void CColossus::Update(float fTime)
 							SAFE_RELEASE(pRC);
 						}
 					}
-
-					//Vector3 vBodyDir = m_pBody->GetWorldPos() - m_pRightHand->GetWorldPos();
-
-					//float fBodyDist = vBodyDir.Length();
-
-					//vBodyDir /= fBodyDist;
-
-					//if (fBodyDist > 5.f)
-					//{
-					//	m_pRightHand->AddWorldPos(vBodyDir* m_fMoveSpeed* fTime);
-					//}
-
-					//else
-					//{
-					//	m_pRightHand->AddWorldPos(vBodyDir* 5.f * fTime);
-					//}
 				}
 
 				else
 				{
-					vPos = m_pRightHand->GetWorldPos();
-
-					Vector3 vDir = vObjPos - vPos;
-
-					float fLength = vDir.Length();
-
-					if (fLength < 10.f)
-					{
-						m_eAttackStage = ATTACK_STAGE::READY;
-					}
-
-					else if (fLength < m_fMoveSpeed)
-					{
-						m_pRightHand->AddWorldPos(vDir / fLength * m_fMoveSpeed * fTime);
-					}
-
-					else
-					{
-						m_pRightHand->AddWorldPos(vDir* fTime);
-					}
+					m_pRightHand->AddWorldPos(0.f, m_fMoveSpeed * fTime, 0.f);
 
 					m_fDownDist -= fTime * m_fMoveSpeed;
 
-					if (m_fDownDist <= 0.f)
+					if (m_fDownDist <= m_fLimitDist2 - m_fLimitDist)
 					{
-						m_fDownDist = 0.f;
+						m_fDownDist = m_fLimitDist2 - m_fLimitDist;
+						m_eAttackStage = ATTACK_STAGE::READY;
+
+						m_vTargetPos = pObj->GetWorldPos();
 					}
 
 					else
@@ -464,100 +671,54 @@ void CColossus::Update(float fTime)
 							SAFE_RELEASE(pRC);
 						}
 					}
-
-					//Vector3 vBodyDir = m_pBody->GetWorldPos() - m_pLeftHand->GetWorldPos();
-
-					//float fBodyDist = vBodyDir.Length();
-
-					//vBodyDir /= fBodyDist;
-
-					//if (fBodyDist > 5.f)
-					//{
-					//	m_pLeftHand->AddWorldPos(vBodyDir* m_fMoveSpeed* fTime);
-					//}
-
-					//else
-					//{
-					//	m_pLeftHand->AddWorldPos(vBodyDir* 5.f * fTime);
-					//}
 				}
 
 				SAFE_RELEASE(pObj);
 			}
-				break;
+			break;
 			case ATTACK_STAGE::READY:
 			{
-				m_fReadyTime += fTime;
-
-				if (m_fReadyTime >= 1.f)
-				{
-					m_fReadyTime = 0.f;
-
-					m_fDownDist = 0.f;
-
-					m_eAttackStage = ATTACK_STAGE::DOWN;					
-
-					if (m_bLeft)
-					{
-						m_pLeftHand->ChangeSequence("Down");
-
-						m_pLeftHandShadow->ChangeSequence("Down");
-
-						CColliderRect* pRC = m_pLeftHand->FindComByType<CColliderRect>();
-
-						pRC->Enable(false);
-
-						SAFE_RELEASE(pRC);
-					}
-
-					else
-					{
-						m_pRightHand->ChangeSequence("Down");
-
-						m_pRightHandShadow->ChangeSequence("Down");
-
-						CColliderRect* pRC = m_pRightHand->FindComByType<CColliderRect>();
-
-						pRC->Enable(false);
-
-						SAFE_RELEASE(pRC);
-					}
-				}
-
-				CObj* pObj = m_pScene->GetGameMode()->GetPlayer();
-
-				Vector3 vObjPos = pObj->GetWorldPos() + Vector3(0.f, m_fLimitDist, 0.f);
-
 				Vector3 vPos = {};
 
 				if (m_bLeft)
 				{
 					vPos = m_pLeftHand->GetWorldPos();
 
-					Vector3 vDir = vObjPos - vPos;
+					Vector3 vDir = m_vTargetPos - (vPos - Vector3(0.f, m_fLimitDist2 - m_fDownDist, 0.f));
+
+					vDir.z = 0.f;
 
 					float fLength = vDir.Length();
-					
-					if (fLength < 10.f)
-					{
-						m_pLeftHand->AddWorldPos(vDir / fLength * 5.f * fTime);
-					}
 
-					else if (fLength < m_fMoveSpeed)
+					vDir /= fLength;
+
+					if (fLength > 10.f)
 					{
-						m_pLeftHand->AddWorldPos(vDir / fLength * m_fMoveSpeed * fTime);
+						m_pLeftHand->AddWorldPos(vDir * 600.f * fTime);
 					}
 
 					else
 					{
-						m_pLeftHand->AddWorldPos(vDir * fTime);
+						m_pLeftHand->AddWorldPos(vDir * 5.f * fTime);
 					}
+
+					m_pLeftHand->AddWorldPos(0.f, m_fMoveSpeed * fTime, 0.f);
 
 					m_fDownDist -= fTime * m_fMoveSpeed;
 
 					if (m_fDownDist <= 0.f)
 					{
 						m_fDownDist = 0.f;
+
+						m_eAttackStage = ATTACK_STAGE::DOWN;
+
+						m_fSpeed = m_fHandSpeed;
+
+						CColliderRect* pRC = m_pLeftHand->FindComByType<CColliderRect>();
+
+						pRC->Enable(false);
+
+						SAFE_RELEASE(pRC);
 					}
 
 					else
@@ -588,30 +749,41 @@ void CColossus::Update(float fTime)
 				{
 					vPos = m_pRightHand->GetWorldPos();
 
-					Vector3 vDir = vObjPos - vPos;
+					Vector3 vDir = m_vTargetPos - (vPos - Vector3(0.f, m_fLimitDist2 - m_fDownDist, 0.f));
+
+					vDir.z = 0.f;
 
 					float fLength = vDir.Length();
 
-					if (fLength < 10.f)
+					vDir /= fLength;
+
+					if (fLength > 10.f)
 					{
-						m_pRightHand->AddWorldPos(vDir / fLength * 5.f * fTime);
-					}
-					
-					else if (fLength < m_fMoveSpeed)
-					{
-						m_pRightHand->AddWorldPos(vDir / fLength * m_fMoveSpeed * fTime);
+						m_pRightHand->AddWorldPos(vDir * 600.f * fTime);
 					}
 
 					else
 					{
-						m_pRightHand->AddWorldPos(vDir * fTime);
+						m_pRightHand->AddWorldPos(vDir * 5.f * fTime);
 					}
+
+					m_pRightHand->AddWorldPos(0.f, m_fMoveSpeed * fTime, 0.f);
 
 					m_fDownDist -= fTime * m_fMoveSpeed;
 
 					if (m_fDownDist <= 0.f)
 					{
 						m_fDownDist = 0.f;
+
+						m_eAttackStage = ATTACK_STAGE::DOWN;
+
+						m_fSpeed = m_fHandSpeed;
+
+						CColliderRect* pRC = m_pRightHand->FindComByType<CColliderRect>();
+
+						pRC->Enable(false);
+
+						SAFE_RELEASE(pRC);
 					}
 
 					else
@@ -622,6 +794,8 @@ void CColossus::Update(float fTime)
 					}
 
 					Vector3 vBodyDir = m_pBody->GetWorldPos() - m_pLeftHand->GetWorldPos();
+
+					vBodyDir.z = 0.f;
 
 					float fBodyDist = vBodyDir.Length();
 
@@ -637,37 +811,71 @@ void CColossus::Update(float fTime)
 						m_pLeftHand->AddWorldPos(vBodyDir * 5.f * fTime);
 					}
 				}
-
-				SAFE_RELEASE(pObj);
 			}
-				break;
+			break;
 			case ATTACK_STAGE::DOWN:
 			{
-				m_fDownDist += fTime * m_fHandSpeed;
+				m_fSpeed += m_fAccel * fTime;
+				m_fDownDist += fTime * m_fSpeed;
 
-				if (m_fDownDist >= m_fLimitDist)
+				if (m_fDownDist >= m_fLimitDist2)
 				{
-
 					m_eAttackStage = ATTACK_STAGE::IDLE;
 
 					((CTileMode*)m_pScene->GetGameMode())->ShakeCam(150.f, 10.f);
 
+					static int iCount = 0;
+
+					char strNum[32] = {};
+
+					sprintf_s(strNum, "Hit%d", iCount + 1);
+
+					m_pBGM->SetSoundAndPlay(strNum);
+
 					if (m_bLeft)
 					{
+						m_pRightHand->ChangeSequence("Defence");
 						m_pLeftHandShadow->SetRelativePos(0.f, 0.f, 0.f);
-
 						m_pLeftHandShadow->SetRelativeScale(48.f, 32.f, 0.f);
+						m_pParticleLeft->SetSpawnCount(16);
+
+						CParticle* pLeft = (CParticle*)m_pLeftHand->FindComponent("TileDustLeft");
+
+						pLeft->SetSpawnCount(16);
+
+						SAFE_RELEASE(pLeft);
+
+						CSceneComponent* pCol = FindSceneComponent("ColossusBody");
+
+						m_pRightHand->SetWorldPos(pCol->GetWorldPos());
+
+						SAFE_RELEASE(pCol);
 					}
 
 					else
 					{
+						m_pLeftHand->ChangeSequence("Defence");
 						m_pRightHandShadow->SetRelativePos(0.f, 0.f, 0.f);
-
 						m_pRightHandShadow->SetRelativeScale(48.f, 32.f, 0.f);
+						m_pParticleRight->SetSpawnCount(16);
+
+						CParticle* pRight = (CParticle*)m_pRightHand->FindComponent("TileDustRight");
+
+						pRight->SetSpawnCount(16);
+
+						SAFE_RELEASE(pRight);
+
+						CSceneComponent* pCol = FindSceneComponent("ColossusBody");
+
+						m_pLeftHand->SetWorldPos(pCol->GetWorldPos());
+
+						SAFE_RELEASE(pCol);
 					}
+
+					++iCount %= 4;
 				}
 
-				else if (m_fLimitDist - m_fDownDist <= 16.f)
+				else if (m_fLimitDist2 - m_fDownDist <= 16.f)
 				{
 					if (m_bLeft)
 					{
@@ -688,97 +896,167 @@ void CColossus::Update(float fTime)
 					}
 				}
 
+				else if (m_fDownDist <m_fLimitDist)
+				{
+					CObj* pObj = m_pScene->GetGameMode()->GetPlayer();
+
+					m_vTargetPos = pObj->GetWorldPos();
+
+					SAFE_RELEASE(pObj);
+
 					if (m_bLeft)
 					{
-						m_pLeftHand->ChangeSequence("Down");
+						vPos = m_pLeftHand->GetWorldPos();
 
-						m_pLeftHand->AddWorldPos(0.f, -m_fHandSpeed * fTime, 0.f);
+						Vector3 vDir = m_vTargetPos - (vPos - Vector3(0.f, m_fLimitDist2 - m_fDownDist, 0.f));
 
-						m_pLeftHandShadow->AddRelativePos(0.f, m_fHandSpeed * fTime, 0.f);
+						vDir.z = 0.f;
 
-						m_pLeftHandShadow->AddRelativeScale(60.f * fTime, 40.f * fTime, 0.f);
+						float fLength = vDir.Length();
 
-						Vector3 vBodyDir = m_pBody->GetWorldPos() - m_pRightHand->GetWorldPos();
+						vDir /= fLength;
 
-						float fBodyDist = vBodyDir.Length();
-
-						vBodyDir /= fBodyDist;
-
-						if (fBodyDist > 5.f)
+						if (fLength > 10.f)
 						{
-							m_pRightHand->AddWorldPos(vBodyDir * m_fMoveSpeed * fTime);
+							m_pLeftHand->AddWorldPos(vDir * 256.f * fTime);
 						}
 
 						else
 						{
-							m_pRightHand->AddWorldPos(vBodyDir * 5.f * fTime);
+							m_pLeftHand->AddWorldPos(vDir * 5.f * fTime);
 						}
 					}
 
 					else
 					{
-						m_pRightHand->ChangeSequence("Down");
+						vPos = m_pRightHand->GetWorldPos();
 
-						m_pRightHand->AddWorldPos(0.f, -m_fHandSpeed * fTime, 0.f);
+						Vector3 vDir = m_vTargetPos - (vPos - Vector3(0.f, m_fLimitDist2 - m_fDownDist, 0.f));
 
-						m_pRightHandShadow->AddRelativePos(0.f, m_fHandSpeed * fTime, 0.f);
+						vDir.z = 0.f;
 
-						m_pRightHandShadow->AddRelativeScale(60.f * fTime, 40.f * fTime, 0.f);
+						float fLength = vDir.Length();
 
-						Vector3 vBodyDir = m_pBody->GetWorldPos() - m_pLeftHand->GetWorldPos();
+						vDir /= fLength;
 
-						float fBodyDist = vBodyDir.Length();
-
-						vBodyDir /= fBodyDist;
-
-						if (fBodyDist > 5.f)
+						if (fLength > 10.f)
 						{
-							m_pLeftHand->AddWorldPos(vBodyDir * m_fMoveSpeed * fTime);
+							m_pRightHand->AddWorldPos(vDir * 256.f * fTime);
 						}
 
 						else
 						{
-							m_pLeftHand->AddWorldPos(vBodyDir * 5.f * fTime);
+							m_pRightHand->AddWorldPos(vDir * 5.f * fTime);
 						}
 					}
-			}
-				break;
+				}
 
+				if (m_bLeft)
+				{
+					m_pLeftHand->AddWorldPos(0.f, -m_fSpeed * fTime, 0.f);
+
+					m_pLeftHandShadow->AddRelativePos(0.f, m_fSpeed * fTime, 0.f);
+
+					m_pLeftHandShadow->AddRelativeScale(60.f * fTime, 40.f * fTime, 0.f);
+
+					Vector3 vBodyDir = m_pBody->GetWorldPos() - m_pRightHand->GetWorldPos();
+
+					float fBodyDist = vBodyDir.Length();
+
+					vBodyDir /= fBodyDist;
+
+					if (fBodyDist > 5.f)
+					{
+						m_pRightHand->AddWorldPos(vBodyDir * m_fMoveSpeed * fTime);
+					}
+
+					else
+					{
+						m_pRightHand->AddWorldPos(vBodyDir * 5.f * fTime);
+					}
+				}
+
+				else
+				{
+					m_pRightHand->AddWorldPos(0.f, -m_fSpeed * fTime, 0.f);
+
+					m_pRightHandShadow->AddRelativePos(0.f, m_fSpeed * fTime, 0.f);
+
+					m_pRightHandShadow->AddRelativeScale(60.f * fTime, 40.f * fTime, 0.f);
+
+					Vector3 vBodyDir = m_pBody->GetWorldPos() - m_pLeftHand->GetWorldPos();
+
+					float fBodyDist = vBodyDir.Length();
+
+					vBodyDir /= fBodyDist;
+
+					if (fBodyDist > 5.f)
+					{
+						m_pLeftHand->AddWorldPos(vBodyDir * m_fMoveSpeed * fTime);
+					}
+
+					else
+					{
+						m_pLeftHand->AddWorldPos(vBodyDir * 5.f * fTime);
+					}
+				}
+			}
+			break;
 			}
 		}
 			break;
-		case TITAN_STATE::STOP:
+		case State::STOP:
 			break;
-		case TITAN_STATE::DIE:
+		case State::DIE:
+			Vector3 vPos = m_pHead->GetWorldPos();
+
+			if (vPos.y > 718.f - 80.f)
+			{
+				m_pHead->AddWorldPos(0.f, -16.f * fTime, 0.f);
+				((CTileMode*)m_pScene->GetGameMode())->ShakeCam();
+			}
+
+			else
+			{
+				m_pHead->ChangeSequence("Sleep");
+				m_pHead->SetDefaultSeq("Sleep");
+			}
+
+			GET_SINGLE(CBossManager)->AddMonster(this);
 			break;
 		}
+		
 	}
-
 }
 
 void CColossus::PostUpdate(float fTime)
 {
-	CObj::PostUpdate(fTime);
+	CSoulMonster::PostUpdate(fTime);
 }
 
 void CColossus::Collision(float fTime)
 {
-	CObj::Collision(fTime);
+	CSoulMonster::Collision(fTime);
 }
 
 void CColossus::PreRender(float fTime)
 {
-	CObj::PreRender(fTime);
+	CSoulMonster::PreRender(fTime);
+
+	if (GET_SINGLE(CEngine)->IsImgui())
+	{
+		SpawnWindow();
+	}
 }
 
 void CColossus::Render(float fTime)
 {
-	CObj::Render(fTime);
+	CSoulMonster::Render(fTime);
 }
 
 void CColossus::PostRender(float fTime)
 {
-	CObj::PostRender(fTime);
+	CSoulMonster::PostRender(fTime);
 }
 
 CColossus* CColossus::Clone()
@@ -788,21 +1066,24 @@ CColossus* CColossus::Clone()
 
 void CColossus::Save(FILE* pFile)
 {
-	CObj::Save(pFile);
+	CSoulMonster::Save(pFile);
 }
 
 void CColossus::Load(FILE* pFile)
 {
-	CObj::Load(pFile);
+	CSoulMonster::Load(pFile);
 }
 
 void CColossus::ColStart(CCollider* pSrc, CCollider* pDst, float fTime)
 {
+	std::string strSrc = pSrc->GetName();
 	std::string strDst = pDst->GetName();
 
 	if (strDst == "BulletBody")
 	{
-		if (m_eState == TITAN_STATE::SLEEP)
+		State eStat = GetState();
+
+		if (m_bSleep)
 		{
 			m_bRising = true;
 
@@ -815,11 +1096,72 @@ void CColossus::ColStart(CCollider* pSrc, CCollider* pDst, float fTime)
 			CScene* pScene = GET_SINGLE(CSceneManager)->GetScene();
 
 			((CTileMode*)m_pScene->GetGameMode())->Lock(true);
+
+			CSpriteComponent* pRightShoulder = (CSpriteComponent*)FindSceneComponent("RightShoulder");
+			CSpriteComponent* pLeftShoulder = (CSpriteComponent*)FindSceneComponent("LeftShoulder");
+
+			pRightShoulder->SetRelativePos(40.f, -24.f, 0.f);
+			pLeftShoulder->SetRelativePos(-40.f, -24.f, 0.f);
+
+			SAFE_RELEASE(pRightShoulder);
+			SAFE_RELEASE(pLeftShoulder);
+
+			m_pBGM->SetSoundAndPlay("Rise");
+			m_pBGM2->SetSoundAndPlay("Colossus");
 		}
 
-		else if (m_eState == TITAN_STATE::ATTACK)
+		else if (eStat == State::ATTACK)
 		{
-			SetState(TITAN_STATE::STOP);
+			if (strSrc == "ColossusBody")
+			{
+				SetState(State::STOP);
+
+				m_pBGM2->SetSound("Colossus");
+				m_pBGM2->Stop();
+
+				CBullet* pBullet = (CBullet*)pDst->GetObj();
+
+				pBullet->SetFix(true);
+				pBullet->SetSpeed(0.f);
+				pBullet->ChangeSprite("ArrowStop");
+				pBullet->SetFixObj(this);
+
+				Vector3 vRot = pBullet->GetWorldRot();
+
+				CSound* pSnd = pBullet->FindComByType<CSound>();
+
+				if (vRot.z < 135.f && vRot.x > 45.f)
+				{
+					pSnd->SetSound("ArrowImpact1");
+				}
+
+				else if (vRot.z > -45.f && vRot.x < 45.f)
+				{
+					pSnd->SetSound("ArrowImpact2");
+				}
+
+				else if (vRot.z > -135.f && vRot.x < -45.f)
+				{
+					pSnd->SetSound("ArrowImpact3");
+				}
+
+				else
+				{
+					pSnd->SetSound("ArrowImpact4");
+				}
+
+				SAFE_RELEASE(pSnd);
+			}
+		}
+
+	}
+
+	else if (strDst == "PlayerBody")
+	{
+		if (m_eAttackStage == ATTACK_STAGE::DOWN)
+		{
+			m_pBGM2->SetSound("Colossus");
+			m_pBGM2->Stop();
 		}
 	}
 }
@@ -832,21 +1174,19 @@ void CColossus::ColLast(CCollider* pSrc, CCollider* pDst, float fTime)
 {
 }
 
-void CColossus::SetState(TITAN_STATE eState)
+void CColossus::SetState(State eState)
 {
-	TITAN_STATE ePrevState = m_eState;
+	State ePrevState = GetState();
 
-	m_eState = eState;
+	CSoulMonster::SetState(eState);
 
-	switch (m_eState)
+	switch (eState)
 	{
-	case TITAN_STATE::SLEEP:
+	case State::IDLE:
 		break;
-	case TITAN_STATE::IDLE:
+	case State::ATTACK:
 		break;
-	case TITAN_STATE::ATTACK:
-		break;
-	case TITAN_STATE::STOP:
+	case State::STOP:
 	{
 		m_pHead->ChangeSequence("Stop");
 
@@ -857,7 +1197,18 @@ void CColossus::SetState(TITAN_STATE eState)
 		GET_SINGLE(CShaderManager)->UpdateCBuffer("Fade", &tFade);
 	}
 		break;
-	case TITAN_STATE::DIE:
+	case State::DIE:
+
+		m_pLight->Enable(false);
+
+		((CColossusMode*)m_pScene->GetGameMode())->Clear();
+
+		CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
+
+		pCam->SetFocus(nullptr);
+
+		SAFE_RELEASE(pCam);
+
 		break;
 	}
 }
@@ -866,7 +1217,7 @@ void CColossus::Cry(float fTime)
 {
 	CTileMode* pMode = (CTileMode*)m_pScene->GetGameMode();
 
-	pMode->ShakeCam(1500.f, 10.f, 10.f);
+	pMode->ShakeCam(1500.f, 10.f, 2.f);
 
 	CSound* pSnd = CreateComponent<CSound>("Cry");
 
@@ -883,13 +1234,14 @@ void CColossus::ReturnCam(float fTime)
 
 	CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
 
-	pCam->SetFocus(pObj);
+	pCam->SetMin(0.f);
+	pCam->SetMax(700.f);
 
 	SAFE_RELEASE(pCam);
 
 	SAFE_RELEASE(pObj);
 
-	SetState(TITAN_STATE::IDLE);
+	SetState(State::IDLE);
 }
 
 void CColossus::StopShaking(float fTime)
@@ -897,4 +1249,28 @@ void CColossus::StopShaking(float fTime)
 	CTileMode* pMode = (CTileMode*)m_pScene->GetGameMode();
 
 	pMode->StopShaking();
+}
+
+void CColossus::Cheat(float, float)
+{
+	SetState(State::DIE);
+}
+
+void CColossus::SpawnWindow()
+{	
+	if (ImGui::Begin("Colossus"))
+	{
+		ImGui::SliderFloat("DownDist", &m_fDownDist, 0.f, m_fLimitDist2);
+		Vector3 vLeftPos = m_pLeftHand->GetWorldPos();
+		ImGui::SliderFloat3("LeftHandPos", &vLeftPos.x, -500.f, 500.f);
+		m_pLeftHand->SetWorldPos(vLeftPos);
+		Vector3 vRightPos = m_pRightHand->GetWorldPos();
+		ImGui::SliderFloat3("RightHandPos", &vRightPos.x, -500.f, 500.f);
+		m_pRightHand->SetWorldPos(vRightPos);
+		ImGui::Text("0: IDLE, 1: FIND, 2: READY, 3: DOWN");
+		ImGui::SliderInt("Stage", (int*)&m_eAttackStage, (int)ATTACK_STAGE::IDLE, (int)ATTACK_STAGE::DOWN);
+		ImGui::Checkbox("Left", &m_bLeft);
+		ImGui::SliderFloat3("TargetPos", &m_vTargetPos.x, 0.f, 500.f);
+	}
+	ImGui::End();
 }

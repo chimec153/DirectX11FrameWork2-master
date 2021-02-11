@@ -77,14 +77,27 @@ public:
 
 		pInfo->pSequence->AddCallBack<T>(strNot, pObj, pFunc);
 	}
+	void AddCallBack(const std::string& strSeq, const std::string& strNot, void(*pFunc)(int, float));
+	template <typename T>
+	void AddCallBack(const std::string& strSeq, const std::string& strNot, T* pObj, void(T::* pFunc)(int, float))
+	{
+		PSpriteInfo pInfo = FindSprite(strSeq);
+
+		if (!pInfo)
+			return;
+
+		pInfo->pSequence->AddCallBack<T>(strNot, pObj, pFunc);
+	}
 
 	void ReturnClip();
 	const _tagFrame GetFrame()	const;
 	const Vector2 GetTextureSize()	const;
 	class CTexture* GetTexture()	const;
+	void SetPlayRate(float fRate);
 
 public:
 	bool Init();
+	bool Init(const char* pFileName, const std::string& strPathKey = DATA_PATH);
 	void Start();
 	void Update(float fTime);
 	void PostUpdate(float fTime);

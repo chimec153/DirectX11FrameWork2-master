@@ -180,6 +180,21 @@ void CAnimation2DSequence::AddCallBack(const std::string& strTag, void(*pFunc)(f
 	}
 }
 
+void CAnimation2DSequence::AddCallBack(const std::string& strTag, void(*pFunc)(int ,float))
+{
+	std::list<class CAnimation2DNotify*>::iterator iter = m_NotifyList.begin();
+	std::list<class CAnimation2DNotify*>::iterator iterEnd = m_NotifyList.end();
+
+	for (; iter != iterEnd; ++iter)
+	{
+		if ((*iter)->m_strTag == strTag)
+		{
+			(*iter)->AddFunc(pFunc);
+			break;
+		}
+	}
+}
+
 void CAnimation2DSequence::Clear()
 {
 	std::list<class CAnimation2DNotify*>::iterator iter = m_NotifyList.begin();

@@ -31,6 +31,22 @@ bool CMesh2DComponent::Init()
 
 	SAFE_RELEASE(pMesh);
 
+	CMaterial* pMtrl = GET_SINGLE(CResourceManager)->FindMaterial("Color");
+
+	m_pMaterial = pMtrl->Clone();
+
+	SAFE_RELEASE(pMtrl);
+
+	return true;
+}
+
+bool CMesh2DComponent::Init(const char* pFileName, const std::string& strPathKey)
+{
+	Init();
+
+	if (!CSceneComponent::Init(pFileName, strPathKey))
+		return false;
+
 	return true;
 }
 

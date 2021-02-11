@@ -14,11 +14,13 @@ protected:
 	class CScene*		m_pScene;
 	class CObj*			m_pPlayer;
 	int					m_iGameModeClassType;
+	bool				m_bStart;
 
 public:
 	void SetPlayer(class CObj* pPlayer);
 	class CObj* GetPlayer()	const;
 	int GetGameModeClassType()	const;
+	bool IsStart()	const;
 
 public:
 	virtual bool Init();

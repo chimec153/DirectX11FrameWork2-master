@@ -132,11 +132,7 @@ void CColliderPixel::SetPixelFromFullPath(const TCHAR* pFullPath)
 	}
 
 #ifdef _DEBUG
-	CMaterial* pMat = m_pPixel->GetMaterial();
-
-	pMat->SetTextureFromFullPath(REGISTER_TYPE::RT_DIF, "Pixel", pFullPath);
-
-	SAFE_RELEASE(pMat);
+	
 #endif
 
 	delete pImage;
@@ -228,11 +224,6 @@ void CColliderPixel::Render(float fTime)
 	CCollider::Render(fTime);
 
 #ifdef _DEBUG
-	CMaterial* pMat = m_pPixel->GetMaterial();
-
-	pMat->SetMaterial();
-
-	SAFE_RELEASE(pMat);
 
 	m_pPixel->Render(fTime);
 #endif

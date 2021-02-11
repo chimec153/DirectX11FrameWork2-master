@@ -5,7 +5,8 @@
 
 CGameMode::CGameMode()	:
 	m_pScene(nullptr),
-	m_pPlayer(nullptr)
+	m_pPlayer(nullptr),
+	m_bStart(false)
 {	
 }
 
@@ -37,6 +38,11 @@ int CGameMode::GetGameModeClassType() const
 	return m_iGameModeClassType;
 }
 
+bool CGameMode::IsStart() const
+{
+	return m_bStart;
+}
+
 bool CGameMode::Init()
 {
 	return true;
@@ -44,6 +50,7 @@ bool CGameMode::Init()
 
 void CGameMode::Start()
 {
+	m_bStart = true;
 }
 
 void CGameMode::Update(float fTime)

@@ -1,17 +1,12 @@
 #include "Mesh2D.h"
 #include "../Device.h"
 
-CMesh2D::CMesh2D() :
-	m_ePrimitive(D3D_PRIMITIVE_TOPOLOGY_UNDEFINED)
+CMesh2D::CMesh2D()
 {
-	memset(&m_tVB, 0, sizeof(VertexBuffer));
-	memset(&m_tIB, 0, sizeof(IndexBuffer));
 }
 
 CMesh2D::~CMesh2D()
 {
-	SAFE_RELEASE(m_tVB.pBuffer);
-	SAFE_RELEASE(m_tIB.pBuffer);
 }
 
 bool CMesh2D::Init()
@@ -227,6 +222,18 @@ void CMesh2D::RenderInstancing(void* pInstancedBuffer, int iCnt, int iSize)
 		CONTEXT->IASetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
 		CONTEXT->DrawInstanced(m_tVB.iCount, iCnt, 0, 0);
 	}
+}
+
+void CMesh2D::RenderParticle(int iCount)
+{
+	UINT iOffset = 0;
+	UINT iStride = m_tVB.iSize;
+
+	CONTEXT->IASetPrimitiveTopology(m_ePrimitive);
+	CONTEXT->IASetVertexBuffers(0, 1, &m_tVB.pBuffer, &iStride, &iOffset);
+
+	CONTEXT->IASetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
+	CONTEXT->DrawInstanced(m_tVB.iCount, iCount, 0, 0);
 }
 
 void CMesh2D::Save(FILE* pFile)

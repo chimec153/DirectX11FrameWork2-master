@@ -466,3 +466,8 @@ float _tagVector2::Distance(const _tagVector2& v) const
 
 	return DirectX::XMVectorGetX(DirectX::XMVector2Length(v1));
 }
+
+const _tagVector2 operator*(float f, const _tagVector2& v)
+{
+	return _tagVector2(f*v.x, f*v.y);
+}

@@ -21,6 +21,15 @@ typedef struct _tagBasic
 	Vector2		vUV;
 }Basic, *PBasic;
 
+typedef struct _tagVertex
+{
+	Vector3	vInitialPosW;
+	Vector3 vInitialVelW;
+	Vector2 vSizeW;
+	float fAge;
+	unsigned int iType;
+}VERTEX, *PVERTEX;
+
 typedef struct _tagInstancedData2D
 {
 	Matrix	matWVP;

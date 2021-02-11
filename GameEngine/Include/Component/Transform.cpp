@@ -28,6 +28,7 @@ CTransform::CTransform()	:
 	m_vWorldPos(),
 	m_vPivot(),
 	m_vMeshSize(),
+	m_vQuaternion(0.f, 0.f, 0.f, 1.f),
 	m_matScale(),
 	m_matRot(),
 	m_matPos(),
@@ -107,7 +108,32 @@ void CTransform::PostUpdate(float fTime)
 		m_matScale.Scale(m_vWorldScale);
 
 	if (m_bUpdateRot)
-		m_matRot.Rotate(m_vWorldRot);
+	{
+		if (m_vQuaternion != Vector4(0.f, 0.f, 0.f, 1.f))
+		{
+			/*XMVECTOR vQuarternion = ;
+
+			if (m_pParent)
+			{
+				vQuarternion = XMQuaternionMultiply(vQuarternion, m_pParent->GetQuarternion().Convert());
+			}*/
+
+			m_matRot = DirectX::XMMatrixRotationQuaternion(m_vQuaternion.Convert());
+			
+		}
+
+		else
+		{
+			m_matRot.Rotate(m_vWorldRot);
+		}
+
+		if (m_pParent && m_bInheritRotX && m_bInheritRotY && m_bInheritRotZ)
+		{
+			Matrix matParentRot = m_pParent->GetMatRot();
+
+			m_matRot *= matParentRot;
+		}
+	}
 
 	m_matPos.Translation(m_vWorldPos);
 
@@ -201,6 +227,20 @@ void CTransform::Load(FILE* pFile)
 	m_bUpdateScale = true;
 }
 
+void CTransform::SpawnWindow()
+{
+	if (ImGui::Begin("Transform"))
+	{
+		ImGui::Text("Pos");
+		ImGui::SliderFloat3("Pos", &m_vWorldPos.x, -5000.f, 5000.f);
+		ImGui::Text("Rot");
+		ImGui::SliderFloat3("Rot", &m_vWorldRot.x, -180.f, 180.f);
+		ImGui::Text("Scale");
+		ImGui::SliderFloat3("Scale", &m_vWorldScale.x, -5000.f, 5000.f);
+	}
+	ImGui::End();
+}
+
 void CTransform::SetInheritScale(bool bInherit)
 {
 	m_bInheritScale = bInherit;
@@ -223,6 +263,16 @@ void CTransform::SetInheritRotZ(bool bInherit)
 void CTransform::SetInheritPos(bool bIn)
 {
 	m_bInheritPos = bIn;
+}
+
+void CTransform::SetUpdateScale(bool bScale)
+{
+	m_bUpdateScale = bScale;
+}
+
+void CTransform::SetUpdateRot(bool bRot)
+{
+	m_bUpdateRot = bRot;
 }
 
 Vector3 CTransform::GetVelocityScale() const
@@ -288,13 +338,13 @@ void CTransform::InheritRot()
 	if (m_pParent)
 	{
 		if (m_bInheritRotX)
-			m_vWorldRot.x = m_vRelativeRot.x + m_pParent->GetWorldRot().x;
+			m_vWorldRot.x = m_vRelativeRot.x;// +m_pParent->GetWorldRot().x;
 
 		if (m_bInheritRotY)
-			m_vWorldRot.y = m_vRelativeRot.y + m_pParent->GetWorldRot().y;
+			m_vWorldRot.y = m_vRelativeRot.y;// +m_pParent->GetWorldRot().y;
 
 		if (m_bInheritRotZ)
-			m_vWorldRot.z = m_vRelativeRot.z + m_pParent->GetWorldRot().z;
+			m_vWorldRot.z = m_vRelativeRot.z;// +m_pParent->GetWorldRot().z;
 
 		InheritPos();
 	}
@@ -333,20 +383,22 @@ void CTransform::InheritPos()
 	{
 		if (m_bInheritPos)
 		{
-			Matrix tmat;
+			if (m_bInheritRotX || m_bInheritRotY || m_bInheritRotZ)
+			{
+				Matrix tmat = m_pParent->GetMatRot();
 
-			tmat.Rotate(m_pParent->GetWorldRot());
+				//tmat.Rotate(m_pParent->GetWorldRot());
 
-			Vector3 vPos = m_pParent->GetWorldPos();
+				Vector3 vPos = m_pParent->GetWorldPos();
 
-			memcpy(&tmat._41, &vPos, sizeof(float) * 3);
+				memcpy(&tmat._41, &vPos, sizeof(float) * 3);
 
-			m_vWorldPos = m_vRelativePos.TransformCoord(tmat);
-		}
-
-		else
-		{
-			m_vWorldPos = m_vRelativePos;// +m_pParent->GetWorldPos();
+				m_vWorldPos = m_vRelativePos.TransformCoord(tmat);
+			}
+			else
+			{
+				m_vWorldPos = m_vRelativePos + m_pParent->GetWorldPos();
+			}
 		}
 	}
 
@@ -583,6 +635,11 @@ Vector3 CTransform::GetPivot() const
 Vector3 CTransform::GetMeshSize() const
 {
 	return m_vMeshSize;
+}
+
+const Vector4& CTransform::GetQuarternion() const
+{
+	return m_vQuaternion;
 }
 
 void CTransform::SetWorldScale(const Vector3& v)
@@ -1205,11 +1262,11 @@ void CTransform::AddWorldRotZ(float z)
 			m_vRelativeRot.z = m_vWorldRot.z - m_pParent->GetWorldRot().z;
 	}
 
-	if (m_vWorldRot.z >= DirectX::XM_2PI)
-		m_vWorldRot.z -= DirectX::XM_2PI;
+	if (m_vWorldRot.z >= 360.f)
+		m_vWorldRot.z -= 360.f;
 
-	else if (m_vWorldRot.z <= -DirectX::XM_2PI)
-		m_vWorldRot.z += DirectX::XM_2PI;
+	else if (m_vWorldRot.z <= -360.f)
+		m_vWorldRot.z += 360.f;
 
 	m_bUpdateRot = true;
 
@@ -1250,4 +1307,36 @@ void CTransform::SetPivot(float x, float y, float z)
 void CTransform::SetMeshSize(const Vector3& v)
 {
 	m_vMeshSize = v;
+}
+
+void CTransform::Slerp(const Vector4& p, const Vector4& q, float s)
+{
+	m_vQuaternion = Vector4::Slerp(p, q, s);
+}
+
+void CTransform::Slerp(const Vector4& q, float s)
+{
+	m_vQuaternion = Vector4::Slerp(m_vQuaternion, q, s);
+}
+
+void CTransform::SetQuaternionRot(const Vector4& vAxis, float fAngle)
+{
+	m_vQuaternion = XMQuaternionRotationAxis(vAxis.Convert(), DegToRad(fAngle));
+}
+
+void CTransform::AddQuaternionRot(const Vector4& vAxis, float fAngle)
+{
+	m_vQuaternion = XMQuaternionMultiply(m_vQuaternion.Convert(),
+		XMQuaternionRotationAxis(vAxis.Convert(), DegToRad(fAngle)));
+}
+
+void CTransform::SetQuaternionRotNorm(const Vector4& vAxis, float fAngle)
+{
+	m_vQuaternion = XMQuaternionRotationNormal(vAxis.Convert(), DegToRad(fAngle));
+}
+
+void CTransform::AddQuaternionRotNorm(const Vector4& vAxis, float fAngle)
+{
+	m_vQuaternion = XMQuaternionMultiply(m_vQuaternion.Convert(),
+		XMQuaternionRotationNormal(vAxis.Convert(), DegToRad(fAngle)));
 }

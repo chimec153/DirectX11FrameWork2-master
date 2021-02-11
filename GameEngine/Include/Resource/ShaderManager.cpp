@@ -2,11 +2,16 @@
 #include "Shader.h"
 #include "GraphicShader.h"
 #include "../Device.h"
+#include "ComputeShader.h"
 
 DEFINITION_SINGLE(CShaderManager)
 
 CShaderManager::CShaderManager()	:
 	m_iInputSize(0)
+	, m_pBuffer(nullptr)
+	, m_pInputSRV(nullptr)
+	, m_pOutputBuffer(nullptr)
+	, m_pOutputUAV(nullptr)
 {
 
 }
@@ -23,6 +28,11 @@ CShaderManager::~CShaderManager()
 		SAFE_RELEASE(iter->second->pBuffer);
 
 	SAFE_DELETE_MAP(m_mapCBuffer);
+
+	SAFE_RELEASE(m_pBuffer);
+	SAFE_RELEASE(m_pInputSRV);
+	SAFE_RELEASE(m_pOutputBuffer);
+	SAFE_RELEASE(m_pOutputUAV);
 }
 
 bool CShaderManager::Init()
@@ -307,12 +317,6 @@ bool CShaderManager::Init()
 
 	SAFE_RELEASE(pInstCollider);
 
-	CGraphicShader* pGS = CreateShader<CGraphicShader>("ParticleShader");
-
-	
-
-	SAFE_RELEASE(pGS);
-
 	CGraphicShader* pShadow = CreateShader<CGraphicShader>("Shadow");
 
 	if (!pShadow->LoadVertexShader("StandardSpriteVS", TEXT("VertexShader.fx")))
@@ -345,14 +349,173 @@ bool CShaderManager::Init()
 
 	SAFE_RELEASE(pShadow);
 
-	CreateCBuffer("Transform", sizeof(TransformCBuffer), 0);
+	CGraphicShader* pParticle = CreateShader<CGraphicShader>("ParticleShader");
+
+	pParticle->LoadVertexShader("VS", TEXT("Particle.fx"));
+	pParticle->LoadGeometryShader("GS", TEXT("Particle.fx"));
+	pParticle->LoadPixelShader("PS", TEXT("Particle.fx"));
+
+	pParticle->AddInputLayoutDesc("POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12,
+		D3D11_INPUT_PER_VERTEX_DATA, 0);
+	pParticle->AddInputLayoutDesc("TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 8,
+		D3D11_INPUT_PER_VERTEX_DATA, 0);
+	pParticle->AddInputLayoutDesc("COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 16,
+		D3D11_INPUT_PER_VERTEX_DATA, 0);
+
+	pParticle->CreateInputLayout();
+
+	SAFE_RELEASE(pParticle);
+
+	CComputeShader* pComputeShader = CreateShader<CComputeShader>("ComputeShader");
+
+	pComputeShader->LoadComputeShader("ParticleMain", TEXT("Particle.fx"));	
+
+	SAFE_RELEASE(pComputeShader);
+
+	CGraphicShader* pCircle2CylinderShader = CreateShader<CGraphicShader>("C2CShader");
+
+	if (!pCircle2CylinderShader->LoadVertexShader("VS", TEXT("Geo.fx")))
+	{
+		return false;
+	}
+
+	if (!pCircle2CylinderShader->LoadGeometryShader("GS", TEXT("Geo.fx")))
+	{
+		return false;
+	}
+
+	if (!pCircle2CylinderShader->LoadPixelShader("PS", TEXT("Geo.fx")))
+	{
+		return false;
+	}
+
+	pCircle2CylinderShader->AddInputLayoutDesc("POSITION", 0,
+		DXGI_FORMAT_R32G32B32_FLOAT, 0, 12,
+		D3D11_INPUT_PER_VERTEX_DATA, 0);
+
+	pCircle2CylinderShader->AddInputLayoutDesc("SIZE", 0,
+		DXGI_FORMAT_R32G32_FLOAT, 0, 8,
+		D3D11_INPUT_PER_VERTEX_DATA, 0);
+
+	pCircle2CylinderShader->AddInputLayoutDesc("COLOR", 0,
+		DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 16,
+		D3D11_INPUT_PER_VERTEX_DATA, 0);
+
+	if (!pCircle2CylinderShader->CreateInputLayout())
+	{
+		return false;
+	}
+
+	SAFE_RELEASE(pCircle2CylinderShader);
+
+	CGraphicShader* pLineShader = CreateShader<CGraphicShader>("LineShader");
+
+	if (!pLineShader->LoadVertexShader("LineVS", L"Line.fx"))
+	{
+		return false;
+	}
+
+	if (!pLineShader->LoadGeometryShader("LineGS", L"Line.fx"))
+	{
+		return false;
+	}
+
+	if (!pLineShader->LoadPixelShader("LinePS", L"Line.fx"))
+	{
+		return false;
+	}
+
+	pLineShader->AddInputLayoutDesc("POSITION", 
+		0, DXGI_FORMAT_R32G32B32_FLOAT,	0, 12, 
+		D3D11_INPUT_PER_VERTEX_DATA, 0);
+
+	pLineShader->CreateInputLayout();
+
+	SAFE_RELEASE(pLineShader);
+
+	D3D11_SO_DECLARATION_ENTRY pEntry[5] = {};
+
+	pEntry[0].SemanticName = "POSITION";
+	pEntry[0].SemanticIndex = 0;
+	pEntry[0].StartComponent = 0;
+	pEntry[0].ComponentCount = 3;
+	pEntry[0].OutputSlot = 0;
+	pEntry[0].Stream = 0;
+
+	pEntry[1].SemanticName = "VELOCITY";
+	pEntry[1].SemanticIndex = 0;
+	pEntry[1].StartComponent = 0;
+	pEntry[1].ComponentCount = 3;
+	pEntry[1].OutputSlot = 0;
+	pEntry[1].Stream = 0;
+
+	pEntry[2].SemanticName = "SIZE";
+	pEntry[2].SemanticIndex = 0;
+	pEntry[2].StartComponent = 0;
+	pEntry[2].ComponentCount = 2;
+	pEntry[2].OutputSlot = 0;
+	pEntry[2].Stream = 0;
+
+	pEntry[3].SemanticName = "AGE";
+	pEntry[3].SemanticIndex = 0;
+	pEntry[3].StartComponent = 0;
+	pEntry[3].ComponentCount = 1;
+	pEntry[3].OutputSlot = 0;
+	pEntry[3].Stream = 0;
+
+	pEntry[4].SemanticName = "TYPE";
+	pEntry[4].SemanticIndex = 0;
+	pEntry[4].StartComponent = 0;
+	pEntry[4].ComponentCount = 1;
+	pEntry[4].OutputSlot = 0;
+	pEntry[4].Stream = 0;
+
+	/*CGraphicShader* pUpdateShader = CreateShader<CGraphicShader>("ParticleUpdate");
+
+	pUpdateShader->LoadVertexShader("VS", L"Particle");
+
+	pUpdateShader->LoadGeometryShaderWithSO("GS", pEntry, 5, sizeof(VERTEX), 1, L"Particle");
+
+	SAFE_RELEASE(pUpdateShader);*/
+
+	CGraphicShader* pAngleShader = CreateShader<CGraphicShader>("AngleShader");
+
+	pAngleShader->LoadVertexShader("VS", L"Line.fx");
+	pAngleShader->LoadPixelShader("PS", L"Line.fx");
+
+	pAngleShader->AddInputLayoutDesc("POSITION", 0,
+		DXGI_FORMAT_R32G32B32_FLOAT, 0, 12,
+		D3D11_INPUT_PER_VERTEX_DATA, 0);
+	pAngleShader->AddInputLayoutDesc("TEXCOORD", 0,
+		DXGI_FORMAT_R32G32_FLOAT, 0, 8,
+		D3D11_INPUT_PER_VERTEX_DATA, 0);
+
+	pAngleShader->CreateInputLayout();
+
+	SAFE_RELEASE(pAngleShader);
+
+	CreateCBuffer("Transform", sizeof(TransformCBuffer), 0, 
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_VERTEX
+		|(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY);
 	CreateCBuffer("Material", sizeof(ShaderCBuffer), 1,
 		(int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
-	CreateCBuffer("Sprite", sizeof(SpriteCBuffer), 2);
+	CreateCBuffer("Sprite", sizeof(SpriteCBuffer), 2, 
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_VERTEX
+		| (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL
+		|(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY);
+	CreateCBuffer("Global", sizeof(GLOBALCBUFFER), 3, 
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_COMPUTE);
 	CreateCBuffer("Bar", sizeof(BARCBUFFER), 10,
 		(int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
+	CreateCBuffer("Particle", sizeof(PARTICLECBUFFER), 11,
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_ALL);
+	CreateCBuffer("ParticleSO", sizeof(CBPERFRAME), 12,
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY
+		| (int)SHADER_CBUFFER_TYPE::CBUFFER_COMPUTE);
 
 	CreateCBuffer("Fade", sizeof(FADE), 10);
+
+	CreateCBuffer("Angle", sizeof(ANGLE), 12, (int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY);
 
 	FADE tFade = {};
 
@@ -518,6 +681,7 @@ PCBuffer CShaderManager::FindCBuffer(const std::string& strTag)
 	return iter->second;
 }
 
+
 bool CShaderManager::LoadVertexShader(const std::string& strName, const char* pEntryName, const TCHAR* pFileName, const std::string& strRootPath)
 {
 	CShader* pShader = FindShader(strName);
@@ -592,6 +756,29 @@ bool CShaderManager::LoadGeometryShader(const std::string& strName, const char* 
 	}
 
 	bool bResult = ((CGraphicShader*)pShader)->LoadGeometryShader(pEntryName, pFileName, strRootPath);
+
+	SAFE_RELEASE(pShader);
+
+	return bResult;
+}
+
+bool CShaderManager::LoadGeometryShaderWithSO(const std::string& strName, const char* pEntryName, 
+	D3D11_SO_DECLARATION_ENTRY* pEntry, UINT iNumEntries, UINT iStride, UINT iNumStrides, 
+	const TCHAR* pFileName, const std::string& strRootName)
+{
+	CShader* pShader = FindShader(strName);
+
+	if (!pShader)
+		return false;
+
+	else if (pShader->GetShaderType() == SHADER_TYPE::ST_COMPUTE)
+	{
+		SAFE_RELEASE(pShader);
+		return false;
+	}
+
+	bool bResult = ((CGraphicShader*)pShader)->LoadGeometryShaderWithSO(pEntryName, pEntry, 
+		iNumEntries, iStride, iNumStrides, pFileName, strRootName);
 
 	SAFE_RELEASE(pShader);
 

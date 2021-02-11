@@ -25,6 +25,10 @@ private:
 	Vector3			m_vPos;
 	float			m_fZoom;
 	Matrix			m_matVP;
+	Resolution		m_tRS;
+	RectInfo		m_tRect;
+	float			m_fZoomLimit;
+	std::function<void(float)>	m_pCallBack;
 
 public:
 	const Matrix& GetViewMat()	const;
@@ -35,12 +39,24 @@ public:
 	void SetDist(float fDist);
 	float GetAngle()	const;
 	float GetDist()	const;
-	void SetZoom(bool bZoom, float fDist = -100.f);
+	void SetZoom(bool bZoom, float fDist = 0.25f);
 	void SetTarget(class CObj* pObj);
 	void SetFocus(class CObj* pObj);
 	void SetMax(float fMax);
 	void SetMin(float fMin);
 	void SetMovePos(const Vector3 vPos);
+	void SetRect(float l, float t, float r, float b);
+	const Resolution& GetResolution()	const;
+	void SetCallBack(void(*pFunc)(float));
+	void SpawnControlWindow();
+	void Reset();
+
+	template<typename T>
+	void SetCallBack(T* pObj, void(T::* pFunc)(float))
+	{
+		m_pCallBack = std::bind(pFunc, pObj, std::placeholders::_1);
+	}
+	const RectInfo& GetRect()	const;
 
 public:
 	virtual bool Init();

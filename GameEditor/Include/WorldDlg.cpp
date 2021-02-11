@@ -61,7 +61,7 @@ void CWorldDlg::AddObject(const std::string& strTag)
 
 	TreeItem tItem;
 
-	tItem.hItem = m_WorldObj.InsertItem(strName, 0, 0, m_hRoot, TVI_LAST);
+	tItem.hItem = m_WorldObj.InsertItem(strName, 0, 0, TVI_ROOT, TVI_LAST);
 
 	tItem.tTag = strName;
 
@@ -115,21 +115,21 @@ void CWorldDlg::OnTvnSelchangedTreeObj(NMHDR* pNMHDR, LRESULT* pResult)
 
 	if (pScene)
 	{
-		CLayer* pLayer = pScene->FindLayer("Default");
+		std::list<class CLayer*> LayerList = pScene->GetLayerList();
 
-		pObj = pLayer->FindObj(strName);
+		std::list<class CLayer*>::iterator iter = LayerList.begin();
+		std::list<class CLayer*>::iterator iterEnd = LayerList.end();
 
-		if (!pObj)
+		for (; iter != iterEnd; ++iter)
 		{
-			CLayer* pUI = pScene->FindLayer("UI");
-
-			pObj = pUI->FindObj(strName);
-
-			if (!pObj)
+			if ((*iter))
 			{
-				CLayer* pBack = pScene->FindLayer("Back");
+				pObj = (*iter)->FindObj(strName);
 
-				pObj = pBack->FindObj(strName);
+				if (pObj)
+				{
+					break;
+				}
 			}
 		}
 	}
@@ -148,7 +148,7 @@ void CWorldDlg::OnInitialUpdate()
 {
 	CFormView::OnInitialUpdate();
 
-	m_hRoot = m_WorldObj.InsertItem(L"Root", 0, 0, TVI_ROOT, TVI_LAST);
+	//m_hRoot = m_WorldObj.InsertItem(L"Root", 0, 0, TVI_ROOT, TVI_LAST);
 }
 
 

@@ -40,6 +40,7 @@ public:
 	class CTileMap* GetTileMap()	const;
 	void SetFontPos(const Vector3& vPos);
 	void AddTileInstState(const std::string& strKey);
+	class CScene* GetScene()	const;
 
 public:
 	virtual bool Init();
@@ -60,5 +61,8 @@ private:
 	static bool SortY(class CObj* pSrc, class CObj* pDst);
 	static bool SortYCom(class CSceneComponent* pSrc, class CSceneComponent* pDst);
 	static bool SortZ(class CSceneComponent* pSrc, class CSceneComponent* pDst);
+
+public:
+	void SpawnWindow();
 };
 

@@ -43,9 +43,25 @@ public:
 	void AddFrame(const Vector2& vStart, const Vector2& vEnd);
 	void AddNotify(const std::string& strTag, int iFrame);
 	void AddNotify(const std::string& strTag, float fTime);
-	void AddCallBack(const std::string& strTag, void(*pFunc)(float));
+	void AddCallBack(const std::string& strTag, void(*pFunc)( float));
 	template <typename T>
-	void AddCallBack(const std::string& strTag, T* pObj, void(T::* pFunc)(float))
+	void AddCallBack(const std::string& strTag, T* pObj, void(T::* pFunc)( float))
+	{
+		std::list<class CAnimation2DNotify*>::iterator iter = m_NotifyList.begin();
+		std::list<class CAnimation2DNotify*>::iterator iterEnd = m_NotifyList.end();
+
+		for (; iter != iterEnd; ++iter)
+		{
+			if ((*iter)->m_strTag == strTag)
+			{
+				(*iter)->AddFunc<T>(pObj, pFunc);
+				break;
+			}
+		}
+	}
+	void AddCallBack(const std::string& strTag, void(*pFunc)(int, float));
+	template <typename T>
+	void AddCallBack(const std::string& strTag, T* pObj, void(T::* pFunc)(int, float))
 	{
 		std::list<class CAnimation2DNotify*>::iterator iter = m_NotifyList.begin();
 		std::list<class CAnimation2DNotify*>::iterator iterEnd = m_NotifyList.end();

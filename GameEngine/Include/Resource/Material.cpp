@@ -10,7 +10,7 @@ CMaterial::CMaterial()	:
 {
 	memset(&m_tCBuffer, 0, sizeof(ShaderCBuffer));
 	m_tCBuffer.vDif = Vector4::White;
-	m_tCBuffer.vAmp = Vector4::White;
+	m_tCBuffer.vAmp = Vector4(0.f, 0.f, 0.f, 0.f);
 	m_tCBuffer.vSpe = Vector4::White;
 	m_tCBuffer.iGray = 1;
 }

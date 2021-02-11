@@ -76,11 +76,11 @@ public:
 	bool LoadTexture(const std::string& strTag, const std::vector<const TCHAR*>& vecFileName, const std::string& strPathName = TEXTURE_PATH);
 	bool LoadTextureFromFullPath(const std::string& strTag, const std::vector<const TCHAR*>& vecFullPath);
 	void SetTexture(int iRegister, int iType, int idx = 0);
-	ID3D11ShaderResourceView* CreateRandomTexture1DSRV();
 
 private:
 	bool CreateResource(int idx = 0);
 	bool CreateAarryResource();
+	void CreateRandomTexture1DSRV();
 
 public:
 	virtual void Save(FILE* pFile);

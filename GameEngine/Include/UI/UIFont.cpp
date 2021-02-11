@@ -19,9 +19,12 @@ CUIFont::CUIFont() :
 	m_fSize(0.f),
 	m_fOpacity(1.f),
 	m_fShadowOpacity(1.f),
+	m_tRect(),
 	m_eAlignH(TEXT_ALIGN_HORISONTAL::LEFT),
 	m_eAlignV(TEXT_ALIGN_VERTICAL::TOP)
 {
+	m_eSceneComponentClassType = SCENECOMPONENT_CLASS_TYPE::UI_FONT;
+
 	m_pText = new TCHAR[m_iLength];
 	m_pFont = new TCHAR[64];
 
@@ -51,11 +54,21 @@ CUIFont::CUIFont(const CUIFont& ui)	:
 	m_iColor = ui.m_iColor;
 	m_iShadowColor = ui.m_iShadowColor;
 	m_pColor = ui.m_pColor;
+	m_pShadowColor = ui.m_pShadowColor;
 	m_iLength = ui.m_iLength;
 	m_pFormat = ui.m_pFormat;
 	m_pLayout = ui.m_pLayout;
+
+	if (m_pLayout)
+	{
+		ui.m_pLayout->AddRef();
+	}
+
 	m_fSize = ui.m_fSize;
 	m_fOpacity = ui.m_fOpacity;
+	m_tRect = ui.m_tRect;
+	m_eAlignH = ui.m_eAlignH;
+	m_eAlignV = ui.m_eAlignV;
 
 	m_pText = ui.m_pText;
 	m_pFont = ui.m_pFont;
@@ -155,7 +168,7 @@ void CUIFont::Render(float fTime)
 
 	m_pTarget->DrawTextLayout(D2D1_POINT_2F(D2D1::Point2F(vPos.x, vPos.y)), m_pLayout, m_pColor);
 
-	m_pTarget->EndDraw();
+	HRESULT tResult = m_pTarget->EndDraw();
 }
 
 void CUIFont::PostRender(float fTime)
@@ -360,13 +373,13 @@ void CUIFont::SetAlignV(TEXT_ALIGN_VERTICAL eAlign)
 	switch (eAlign)
 	{
 	case TEXT_ALIGN_VERTICAL::TOP:
-		m_pLayout->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+		m_pLayout->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
 		break;
 	case TEXT_ALIGN_VERTICAL::MID:
-		m_pLayout->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+		m_pLayout->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
 		break;
 	case TEXT_ALIGN_VERTICAL::BOT:
-		m_pLayout->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
+		m_pLayout->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_FAR);
 		break;
 	}
 

@@ -4,6 +4,8 @@
 #include "Scene/SceneManager.h"
 #include "Camera/CameraManager.h"
 #include "Component/Camera.h"
+#include "Component/ColliderPoint.h"
+#include "Engine.h"
 
 DEFINITION_SINGLE(CInput)
 
@@ -82,6 +84,25 @@ const Vector2& CInput::GetMouseMove() const
 CMouseObj* CInput::GetMouse() const
 {
 	return m_pMouseObj;
+}
+
+void CInput::DeleteActionCallBack(const std::string& strTag)
+{
+	std::unordered_map<std::string, PBindAction>::iterator iter = m_mapBindAction.find(strTag);
+
+	if (iter == m_mapBindAction.end())
+		return;
+
+	iter->second->vecDFunc->clear();
+}
+
+void CInput::DeleteAxisCallBack(const std::string& strTag)
+{
+}
+
+bool CInput::IsKeyPressed(unsigned char cKey)
+{
+	return m_cState[cKey] != 0;
 }
 
 bool CInput::Init(HWND hWnd, HINSTANCE hInst)
@@ -292,6 +313,12 @@ void CInput::UpdateAction(float fTime)
 						iter->second->vecFunc[KT_DOWN][j].pFunc(iter->first, KT_DOWN,
 							iter->second->vecKey[i].pInfo->fPushTime, fTime);
 
+					iFuncSize = iter->second->vecDFunc[KT_DOWN].size();
+
+					for (size_t j = 0; j < iFuncSize; ++j)
+					{
+						iter->second->vecDFunc[KT_DOWN][j](fTime);
+					}
 				}
 
 				else
@@ -301,6 +328,13 @@ void CInput::UpdateAction(float fTime)
 					for (size_t j = 0; j < iFuncSize; ++j)
 						iter->second->vecFunc[KT_PRESS][j].pFunc(iter->first, KT_PRESS,
 							iter->second->vecKey[i].pInfo->fPushTime, fTime);
+
+					iFuncSize = iter->second->vecDFunc[KT_PRESS].size();
+
+					for (size_t j = 0; j < iFuncSize; ++j)
+					{
+						iter->second->vecDFunc[KT_PRESS][j](fTime);
+					}
 				}
 			}
 
@@ -313,6 +347,13 @@ void CInput::UpdateAction(float fTime)
 				for (size_t j = 0; j < iFuncSize; ++j)
 					iter->second->vecFunc[KT_UP][j].pFunc(iter->first, KT_UP, 
 						iter->second->vecKey[i].pInfo->fPushTime, fTime);
+
+				iFuncSize = iter->second->vecDFunc[KT_UP].size();
+
+				for (size_t j = 0; j < iFuncSize; ++j)
+				{
+					iter->second->vecDFunc[KT_UP][j](fTime);
+				}
 
 				iter->second->vecKey[i].pInfo->fPushTime = 0.f;
 			}
@@ -336,6 +377,8 @@ void CInput::UpdateMouse(float fTime)
 
 	Vector2 vRatio = RATIO;
 
+	bool bImgui = GET_SINGLE(CEngine)->IsImgui();
+
 	if (pt.x < 0 || pt.y < 0 ||
 		pt.x > tRect.right - tRect.left || pt.y > tRect.bottom - tRect.top)
 	{
@@ -350,14 +393,30 @@ void CInput::UpdateMouse(float fTime)
 	{
 		if (m_bShowCS)
 		{
-			m_bShowCS = false;
-			ShowCursor(FALSE);
+			if (!bImgui)
+			{
+				m_bShowCS = false;
+				ShowCursor(FALSE);
+			}
+		}
+
+		else if(bImgui)
+		{
+			m_bShowCS = true;
+			ShowCursor(TRUE);
 		}
 	}
+
+	CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
+
+	RectInfo tInfo = pCam->GetRect();
 
 	Vector2 vPos = pt;
 
 	vPos *= GET_SINGLE(CDevice)->GetRatio();
+
+	vPos.x *= (tInfo.fR - tInfo.fL);
+	vPos.y *= (tInfo.fT - tInfo.fB);
 
 	vPos.y = (float)tRS.iHeight - vPos.y;
 
@@ -365,15 +424,16 @@ void CInput::UpdateMouse(float fTime)
 
 	m_vMousePos = vPos;
 
-	CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
-
 	Vector3 vCamPos = pCam->GetWorldPos();
 
 	Vector3 vPivot = pCam->GetPivot();
 
 	SAFE_RELEASE(pCam);
 
-	m_vWorldMousePos = m_vMousePos + Vector2(vCamPos.x, vCamPos.y) - Vector2((float)tRS.iWidth , (float)tRS.iHeight) * Vector2(vPivot.x, vPivot.y);
+	m_vMousePos += Vector2((float)tRS.iWidth, (float)tRS.iHeight) * Vector2(vPivot.x, vPivot.y)
+		* Vector2(tInfo.fR - tInfo.fL, -tInfo.fT+ tInfo.fB);
+
+	m_vWorldMousePos = m_vMousePos + Vector2(vCamPos.x, vCamPos.y);
 
 	m_pMouseObj->SetRelativePos(m_vMousePos.x, m_vMousePos.y, 0.f);
 
@@ -473,6 +533,13 @@ void CInput::CreateMouse()
 	}
 
 	m_pMouseObj->SetRelativePos(m_vMousePos.x, m_vMousePos.y, 0.f);
+
+	CColliderPoint* pCom = m_pMouseObj->FindComByType<CColliderPoint>();
+
+	pCom->AddRenderState("DepthNoWrite");
+	pCom->AddRenderState("NoCullBack");
+
+	SAFE_RELEASE(pCom);
 /*
 	ShowCursor(FALSE);
 
@@ -492,9 +559,21 @@ void CInput::PreRender(float fTime)
 void CInput::Render()
 {
 	m_pMouseObj->Render(0.f);
+
+	if (GET_SINGLE(CEngine)->IsImgui())
+	{
+		if (ImGui::Begin("Mouse"))
+		{
+			Resolution tRS = RESOLUTION;
+
+			ImGui::SliderFloat3("RelativePos", &m_vMousePos.x, 0.f, (float)tRS.iWidth);
+			ImGui::SliderFloat3("WorldPos", &m_vWorldMousePos.x, -5000.f, 5000.f);
+		}
+		ImGui::End();
+	}
 }
 
-void CInput::AddActionKey(const std::string& strTag, char cKey)
+void CInput::AddActionKey(const std::string& strTag, unsigned char cKey)
 {
 	PBindAction pAction = FindAction(strTag);
 
@@ -541,7 +620,7 @@ void CInput::AddActionKey(const std::string& strTag, char cKey)
 	pAction->vecKey.push_back(tKey);
 }
 
-void CInput::AddActionKeyUnion(const std::string& strTag, char cKey, KEY_UNION eUnion)
+void CInput::AddActionKeyUnion(const std::string& strTag, unsigned char cKey, KEY_UNION eUnion)
 {
 	PBindAction pAction = FindAction(strTag);
 
@@ -610,6 +689,20 @@ void CInput::AddActionBind(const std::string& strTag, KEY_TYPE eType, void(*pFun
 	pAction->vecFunc[eType].push_back(tFunc);
 }
 
+void CInput::AddActionBind(const std::string& strTag, KEY_TYPE eType, void(*pFunc)(float))
+{
+	PBindAction pAction = FindAction(strTag);
+
+	if (!pAction)
+	{
+		pAction = new BindAction;
+		pAction->strTag = strTag;
+		m_mapBindAction.insert(std::make_pair(strTag, pAction));
+	}
+
+	pAction->vecDFunc[eType].push_back(std::bind(pFunc, std::placeholders::_1));
+}
+
 void CInput::DeleteActionKey(const std::string& strTag)
 {
 	std::unordered_map<std::string, PBindAction>::iterator iter = m_mapBindAction.find(strTag);
@@ -668,7 +761,7 @@ void CInput::DeleteActionKey(const std::string& strTag, CInputObj* pInput)
 	}
 }
 
-void CInput::AddAxisKey(const std::string& strTag, char cKey, float fScale)
+void CInput::AddAxisKey(const std::string& strTag, unsigned char cKey, float fScale)
 {
 	PBindAxis pAxis = FindAxis(strTag);
 

@@ -7,11 +7,12 @@ class CResourceManager
 private:
 	class CMesh2D*			m_pDefaultMesh;
 	class CMesh2D*			m_pDefaultUIMesh;
-	class CTexture*			m_pDefaultTex;
+	class CTexture*			m_pNoiseTex;
 	std::unordered_map<std::string, class CMesh*>					m_mapMesh;
 	std::unordered_map<std::string, class CMaterial*>				m_mapMaterial;
 	std::unordered_map<std::string, class CTexture*>				m_mapTexture;
 	std::unordered_map<std::string, class CAnimation2DSequence*>	m_mapAni2DSeq;
+	std::unordered_map<std::string, class CParticleSystem*>			m_mapParticle;
 	ID3D11SamplerState*		m_pPoint;
 	ID3D11SamplerState*		m_pLinear;
 	ID3D11SamplerState*		m_pAnisotropic;
@@ -19,7 +20,7 @@ private:
 public:
 	class CMesh2D* GetDefaultMesh()	const;
 	class CMesh2D* GetUIMesh()	const;
-	class CTexture* GetDTex()	const;
+	class CTexture* GetNoiseTex()	const;
 
 public:
 	bool Init();
@@ -28,6 +29,7 @@ public:
 		DXGI_FORMAT eFmt = DXGI_FORMAT_UNKNOWN);
 	class CMesh* FindMesh(const std::string& strName);
 	void ReleaseMesh(const std::string& strName);
+	void Update(float fTime);
 
 public:
 	class CMaterial* CreateMaterial(const std::string& strName);
@@ -57,5 +59,11 @@ public:
 private:
 	ID3D11SamplerState* CreateSample(D3D11_FILTER eFilter);
 
+public:
+	class CParticleSystem* CreateParticle(const std::string& strTag, bool bDynamic, 
+		int iCount, int iSize, int iRegister, int iType);
+	class CParticleSystem* FindParticle(const std::string& strTag);
+
 	DECLARE_SINGLE(CResourceManager)
+	
 };

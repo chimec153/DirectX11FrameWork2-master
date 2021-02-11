@@ -1,6 +1,6 @@
 ﻿//{{NO_DEPENDENCIES}}
-// Microsoft Visual C++에서 생성한 포함 파일입니다.
-// GameEditor.rc에서 사용되고 있습니다.
+// Microsoft Visual C++ generated include file.
+// Used by GameEditor.rc
 //
 #define IDD_ABOUTBOX                    100
 #define IDD_FORMVIEW                    101
@@ -8,7 +8,6 @@
 #define IDD_DETAIL                      102
 #define IDR_MAINFRAME                   128
 #define IDR_GameEditorTYPE              130
-#undef IDI_ICON1
 #define IDI_ICON1                       310
 #define IDD_DIALOG_ANI_EDIT             315
 #define IDC_TREE_OBJ                    1000
@@ -32,6 +31,11 @@
 #define IDC_BUTTON_SAVE_SEQ             1010
 #define IDC_BUTTON_ADD_SEQUENCE3        1011
 #define IDC_BUTTON_LOAD_SEQ             1011
+#define IDC_COMBO_STATE                 1011
+#define IDC_EDIT_SCENE                  1012
+#define IDC_EDIT_LAYER                  1013
+#define IDC_EDIT3                       1014
+#define IDC_EDIT_ZORDER                 1014
 #define ID_Menu                         32771
 #define ID_32772                        32772
 #define ID_SAVE                         32773
@@ -44,7 +48,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        317
 #define _APS_NEXT_COMMAND_VALUE         32776
-#define _APS_NEXT_CONTROL_VALUE         1010
+#define _APS_NEXT_CONTROL_VALUE         1013
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

@@ -4,14 +4,18 @@
 #include "../Resource/Mesh.h"
 #include "../Resource/Material.h"
 #include "../Resource/ResourceManager.h"
+#include "../Resource/Shader.h"
+#include "../Resource/ShaderManager.h"
 
 CRenderer::CRenderer()	:
 	m_pMesh(nullptr)
 	, m_pMaterial(nullptr)
+	, m_pShader(nullptr)
 {
 }
 
-CRenderer::CRenderer(const CRenderer& com)
+CRenderer::CRenderer(const CRenderer& com)	:
+	CComponent(com)
 {
 	m_pMesh = com.m_pMesh;
 
@@ -26,13 +30,25 @@ CRenderer::CRenderer(const CRenderer& com)
 	else
 		m_pMaterial = nullptr;
 
+	m_pShader = com.m_pShader;
+
+	if (m_pShader)
+	{
+		m_pShader->AddRef();
+	}
+
 	m_vecRenderState.clear();
 
 	size_t iSz = com.m_vecRenderState.size();
 
 	for (int i = 0; i < iSz; ++i)
 	{
-		m_vecRenderState.push_back(GET_SINGLE(CRenderManager)->FindState(com.m_vecRenderState[i]->GetTag()));
+		CRenderState* pState = GET_SINGLE(CRenderManager)->FindState(com.m_vecRenderState[i]->GetName());
+
+		if (pState)
+		{
+			m_vecRenderState.push_back(pState);
+		}
 	}
 }
 
@@ -41,11 +57,20 @@ CRenderer::~CRenderer()
 	SAFE_RELEASE_VECLIST(m_vecRenderState);
 	SAFE_RELEASE(m_pMaterial);
 	SAFE_RELEASE(m_pMesh);
+	SAFE_RELEASE(m_pShader);
 }
 
 void CRenderer::AddRenderState(const std::string& strKey)
 {
-	CRenderState* pState = GET_SINGLE(CRenderManager)->FindState(strKey);
+	CRenderState* pState = FindState(strKey);
+
+	if (pState)
+	{
+		SAFE_RELEASE(pState);
+		return;
+	}
+
+	pState = GET_SINGLE(CRenderManager)->FindState(strKey);
 
 	if (!pState)
 		return;
@@ -66,18 +91,6 @@ void CRenderer::SetMesh(const std::string& strName)
 	SAFE_RELEASE(m_pMesh);
 
 	m_pMesh = GET_SINGLE(CResourceManager)->FindMesh(strName);
-
-	if (m_pMesh)
-	{
-		CMaterial* pMaterial = m_pMesh->GetMaterial();
-		CMaterial* pClone = pMaterial->Clone();
-
-		SAFE_RELEASE(pMaterial);
-
-		m_pMaterial = pClone;
-
-		SAFE_RELEASE(pClone);
-	}
 }
 
 void CRenderer::SetMesh(CMesh* pMesh)
@@ -89,15 +102,6 @@ void CRenderer::SetMesh(CMesh* pMesh)
 	if (m_pMesh)
 	{
 		m_pMesh->AddRef();
-
-		CMaterial* pMaterial = m_pMesh->GetMaterial();
-		CMaterial* pClone = pMaterial->Clone();
-
-		SAFE_RELEASE(pMaterial);
-
-		SetMaterial(pClone);
-
-		SAFE_RELEASE(pClone);
 	}
 }
 
@@ -119,6 +123,23 @@ void CRenderer::SetMaterial(CMaterial* pMaterial)
 		m_pMaterial->AddRef();
 }
 
+void CRenderer::SetShader(const std::string& strTag)
+{
+	SAFE_RELEASE(m_pShader);
+
+	m_pShader = GET_SINGLE(CShaderManager)->FindShader(strTag);
+}
+
+void CRenderer::SetShader(CShader* pShader)
+{
+	SAFE_RELEASE(m_pShader);
+
+	m_pShader = pShader;
+
+	if (m_pShader)
+		m_pShader->AddRef();
+}
+
 void CRenderer::SetState()
 {
 	size_t iSz = m_vecRenderState.size();
@@ -137,6 +158,49 @@ void CRenderer::ResetState()
 	{
 		m_vecRenderState[i]->ResetState();
 	}
+}
+
+const std::vector<class CRenderState*>& CRenderer::GetVecRenderState() const
+{
+	return m_vecRenderState;
+}
+
+void CRenderer::DeleteRenderState(const std::string& strKey)
+{
+	size_t iSz = m_vecRenderState.size();
+
+	for (size_t i = 0; i < iSz; ++i)
+	{
+		if (m_vecRenderState[i]->GetName() == strKey)
+		{
+			m_vecRenderState[i]->ResetState();
+
+			SAFE_RELEASE(m_vecRenderState[i]);
+
+			std::vector<CRenderState*>::iterator iter = m_vecRenderState.begin() + i;
+
+			m_vecRenderState.erase(iter);
+
+			return;
+		}
+	}
+}
+
+CRenderState* CRenderer::FindState(const std::string& strKey)
+{
+	size_t iSz = m_vecRenderState.size();
+
+	for (size_t i = 0; i < iSz; ++i)
+	{
+		if (m_vecRenderState[i]->GetName() == strKey)
+		{
+			m_vecRenderState[i]->AddRef();
+
+			return m_vecRenderState[i];
+		}
+	}
+
+	return nullptr;
 }
 
 bool CRenderer::Init()
@@ -175,6 +239,12 @@ void CRenderer::PreRender(float fTime)
 void CRenderer::Render(float fTime)
 {
 	CComponent::Render(fTime);
+
+	m_pShader->SetShader();
+
+	m_pMaterial->SetMaterial();
+
+	m_pMesh->Render(fTime);
 }
 
 void CRenderer::PostRender(float fTime)

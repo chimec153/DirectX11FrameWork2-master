@@ -72,7 +72,11 @@ void CColliderOBB2D::PostUpdate(float fTime)
 	SetWorldScale(m_tInfo.fLength[(int)WORLD_AXIS::AXIS_X] * 2.f, m_tInfo.fLength[(int)WORLD_AXIS::AXIS_Y] * 2.f, m_tInfo.fLength[(int)WORLD_AXIS::AXIS_Z] * 2.f);
 
 	for (int i = 0; i < (int)WORLD_AXIS::AXIS_END; ++i)
-		m_tInfo.vAxis[i] = GetWorldAxis((WORLD_AXIS)i);
+	{
+		Matrix matRot = GetMatRot();
+
+		m_tInfo.vAxis[i] = DirectX::XMVector3TransformNormal(Vector3::Axis[i].Convert(), matRot.m);
+	}		
 
 	Vector3 vPt[2] =
 	{

@@ -202,6 +202,16 @@ void CSpriteComponent::AddCallBack(const std::string& strSeq, const std::string&
 	pInfo->pSequence->AddCallBack(strNot, pFunc);
 }
 
+void CSpriteComponent::AddCallBack(const std::string& strSeq, const std::string& strNot, void(*pFunc)(int, float))
+{
+	PSpriteInfo pInfo = FindSprite(strSeq);
+
+	if (!pInfo)
+		return;
+
+	pInfo->pSequence->AddCallBack(strNot, pFunc);
+}
+
 void CSpriteComponent::ReturnClip()
 {
 	if (m_pCurrent == m_pDefault)
@@ -230,6 +240,14 @@ CTexture* CSpriteComponent::GetTexture() const
 	return m_pCurrent->pSequence->m_pTexture;
 }
 
+void CSpriteComponent::SetPlayRate(float fRate)
+{
+	if (m_pCurrent)
+	{
+		m_pCurrent->fPlayRate = fRate;
+	}
+}
+
 const Vector2 CSpriteComponent::GetTextureSize() const
 {
 	return m_pCurrent->pSequence->m_pTexture->GetSize();
@@ -246,7 +264,23 @@ bool CSpriteComponent::Init()
 
 	SetMesh(m_pMesh);
 
+	CMaterial* pMtrl = GET_SINGLE(CResourceManager)->FindMaterial("Color");
+
+	m_pMaterial = pMtrl->Clone();
+
+	SAFE_RELEASE(pMtrl);
+
 	m_pMaterial->SetShader("Sprite");
+
+	return true;
+}
+
+bool CSpriteComponent::Init(const char* pFileName, const std::string& strPathKey)
+{
+	Init();
+
+	if (!CSceneComponent::Init(pFileName, strPathKey))
+		return false;
 
 	return true;
 }
@@ -276,6 +310,8 @@ void CSpriteComponent::Update(float fTime)
 
 			if (m_pCurrent->iFrame >= m_pCurrent->pSequence->m_iMaxFrame)
 			{
+				m_pCurrent->pSequence->Update(m_pCurrent->iFrame, m_pCurrent->fTime, m_pCurrent->fPlayRate * fTime);
+
 				if (m_pCurrent->pFunc)
 					m_pCurrent->pFunc();
 

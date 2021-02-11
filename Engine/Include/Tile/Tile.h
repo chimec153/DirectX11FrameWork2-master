@@ -32,7 +32,7 @@ public:
 	const Vector2 GetSize()	const;
 	const Matrix& GetWV()	const;
 	const Vector2 GetTextureSize()	const;
-	void SetAnim(const Vector2& iStart, int iCount, float fMaxTime);
+	void SetAnim(const std::vector<Vector2>& iStart, float vecFrame);
 		
 public:
 	virtual bool Init();

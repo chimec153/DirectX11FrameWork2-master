@@ -15,6 +15,7 @@
 #include "ViewManager.h"
 #include "ClientCreateSystem.h"
 #include "Client/Client.h"
+#include "Client/BossManager.h"
 
 #ifdef _DEBUG
 #undef new
@@ -182,6 +183,7 @@ BOOL CGameEditorApp::OnIdle(LONG lCount)
 int CGameEditorApp::ExitInstance()
 {
 	DESTROY_SINGLE(CViewManager);
+	DESTROY_SINGLE(CBossManager);
 	DESTROY_SINGLE(CEngine);
 	DESTROY_SINGLE(CClientCreateSystem);
 	DESTROY_SINGLE(CClient);

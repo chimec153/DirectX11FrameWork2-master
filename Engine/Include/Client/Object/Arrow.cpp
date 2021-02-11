@@ -1,6 +1,7 @@
 #include "Arrow.h"
 #include "Component/SpriteComponent.h"
 #include "Component/ColliderCircle.h"
+#include "Resource/Material.h"
 
 CArrow::CArrow()	:
 	m_pMesh(nullptr)
@@ -83,6 +84,14 @@ bool CArrow::Init()
 
 	SetRootComponent(m_pMesh);
 	m_pMesh->AddRenderState("Character");
+	m_pMesh->AddRenderState("NoCullBack");
+	m_pMesh->AddRenderState("AlphaBlend");
+
+	CMaterial* pMat = m_pMesh->GetMaterial();
+
+	pMat->SetGray(false);
+
+	SAFE_RELEASE(pMat);
 
 	return true;
 }

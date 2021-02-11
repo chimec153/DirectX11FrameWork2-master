@@ -18,6 +18,9 @@
 #include "ClientCreateSystem.h"
 #include "Client/Client.h"
 #include "ClientInstance.h"
+#include "Client/GameMode/MainGameMode.h"
+#include "Client/BossManager.h"
+#include "Client/GameMode/EndGameMode.h"
 
 #ifdef _DEBUG
 #undef new
@@ -93,8 +96,31 @@ void CGameEditorView::OnInitialUpdate()
 {
 	CView::OnInitialUpdate();
 
+	ImGui_ImplWin32_EnableDpiAwareness();
+
+	ImGui::CreateContext();
+
+	ImGuiIO& io = ImGui::GetIO();
+
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+	ImGui::StyleColorsDark();
+
+	ImGuiStyle& style = ImGui::GetStyle();
+
+	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	{
+		style.WindowRounding = 0;
+		style.Colors[ImGuiCol_WindowBg].w = 1.f;
+	}
+
+	ImGui_ImplWin32_Init(m_hWnd);
+
 	GET_SINGLE(CEngine)->Init(AfxGetInstanceHandle(), 
 		m_hWnd, TEXT("ASSORT30"), 1280, 720, true);
+
+	GET_SINGLE(CBossManager)->Init();
 
 	GET_SINGLE(CClientCreateSystem)->Init();
 

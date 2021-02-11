@@ -13,6 +13,9 @@
 #include "../Object/Bullet.h"
 #include "../Object/Effect.h"
 #include "Component/SpriteComponent.h"
+#include "../BossManager.h"
+
+bool CColossusMode::m_bClear = false;
 
 CColossusMode::CColossusMode()
 {
@@ -24,51 +27,35 @@ CColossusMode::~CColossusMode()
 
 bool CColossusMode::Init()
 {
-	LoadResource();
+	if (!CTileMode::Init())
+		return false;
 
-	LoadXml("MAPS\\JAM\\colossus.tmx");
-
-	m_pScene->SortInstText();
-
-	CLayer* pLayer = m_pScene->FindLayer("Default");
-
-	CPlayer* pPlayer = m_pScene->CreateObject<CPlayer>("player", pLayer);
-
-	pPlayer->SetWorldPos(488.f, 500.f, 0.f);
-
-	SetPlayer(pPlayer);
-
-	SAFE_RELEASE(pPlayer);
-
-	CColossus* pColossus = m_pScene->CreateObject<CColossus>("Colossus", pLayer);
-
-	pColossus->SetWorldPos(488.f, 640.f, 0.f);
-
-	SAFE_RELEASE(pColossus);
-
-	CBullet* pBullet = CScene::CreateProtoObj<CBullet>("Bullet", m_pScene, m_pScene->GetSceneType());
-
-	SAFE_RELEASE(pBullet);
-
-	CEffect* pChargeEffect = CScene::CreateProtoObj<CEffect>("Charge", m_pScene, m_pScene->GetSceneType());
-
-	CSpriteComponent* pCharge = pChargeEffect->CreateComponent<CSpriteComponent>("Charge");
-
-	pCharge->CreateSprite("Charge", "Charge", LOOP_OPTION::ONCE_DESTROY);
-
-	pCharge->SetInheritScale(false);
-	pCharge->SetPivot(0.5f, 0.5f, 0.f);
-	pCharge->SetWorldScale(16.f, 16.f, 1.f);
-	pCharge->AddNotify("Charge", "FireEnd", 1.f);
-
-	pChargeEffect->SetRootComponent(pCharge);
-	pChargeEffect->SetSpeed(0.f);
-
-	SAFE_RELEASE(pCharge);
-
-	SAFE_RELEASE(pChargeEffect);
+	m_pPlayer->SetWorldPos(480.f, 416.f, 0.f);
 
 	return true;
+}
+
+void CColossusMode::Start()
+{
+	CGameMode::Start();
+
+	if (m_bClear)
+	{
+		CObj* pObj = m_pScene->FindLayer("Default")->FindObj("boss_colossus");
+
+		if (pObj)
+		{
+			pObj->Destroy();
+
+			pObj->Release();
+		}
+
+		pObj = GET_SINGLE(CBossManager)->FindMonster("boss_colossus");
+
+		m_pScene->FindLayer("Default")->AddObj(pObj);
+
+		SAFE_RELEASE(pObj);
+	}
 }
 
 bool CColossusMode::LoadXml(const char* pFileName, const std::string& strPathKey)

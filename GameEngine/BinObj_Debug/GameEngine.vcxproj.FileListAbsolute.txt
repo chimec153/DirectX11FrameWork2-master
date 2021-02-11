@@ -2,3 +2,6 @@ C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\G
 C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEngine\Bin\Collider.cso
 C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEngine\Bin\Inst.cso
 C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEngine\Bin\UI.cso
+C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEngine\Bin\Particle.cso
+C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEngine\Bin\Geo.cso
+C:\Users\gu\source\repos\DirectX11FrameWork2-master\DirectX11FrameWork2-master\GameEngine\Bin\Line.cso

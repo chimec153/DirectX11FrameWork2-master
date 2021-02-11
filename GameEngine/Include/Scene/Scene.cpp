@@ -3,6 +3,7 @@
 #include "SceneCollision.h"
 #include "../Layer.h"
 #include "../Collision/CollisionManager.h"
+#include "../Engine.h"
 
 std::unordered_map<std::string, CObj*> CScene::m_mapProtoType[(int)SCENE_TYPE::SC_END];
 
@@ -14,11 +15,12 @@ CScene::CScene()	:
 
 	CreateLayer("Back", INT_MAX);
 	CreateLayer("Temp", 0);
-	CreateLayer("Ground", -253);
-	CreateLayer("BackDefault", -254);
-	CreateLayer("Default", -255);
-	CreateLayer("Fore", -256);
-	CreateLayer("Light", -257);
+	CreateLayer("Ground", -5);
+	CreateLayer("BackDefault", -6);
+	CreateLayer("Default", -7);
+	CreateLayer("Fore", -8);
+	CreateLayer("Light", -9);
+	CreateLayer("Speacial", -258);
 	CreateLayer("UI", -512);
 }
 
@@ -69,6 +71,11 @@ CLayer* CScene::FindLayer(const std::string& strKey)
 	}
 
 	return nullptr;
+}
+
+const std::list<class CLayer*>& CScene::GetLayerList() const
+{
+	return m_LayerList;
 }
 
 CGameMode* CScene::GetGameMode() const
@@ -175,6 +182,11 @@ void CScene::Update(float fTime)
 		++iter;
 	}
 
+	if (!m_pGameMode->IsStart())
+	{
+		m_pGameMode->Start();
+	}
+
 	m_pGameMode->Update(fTime);
 }
 
@@ -256,12 +268,22 @@ void CScene::PreRender(float fTime)
 		(*iter)->PreRender(fTime);
 		++iter;
 	}
+
+	m_pGameMode->PreRender(fTime);
+
+#ifdef _DEBUG
+	if (GET_SINGLE(CEngine)->IsImgui())
+	{
+		SpawnWindow();
+	}
+#endif
 }
 
 void CScene::Render(float fTime)
 {
 	std::list<CLayer*>::iterator iter = m_LayerList.begin();
 	std::list<CLayer*>::iterator iterEnd = m_LayerList.end();
+
 
 	for (; iter != iterEnd;)
 	{
@@ -282,6 +304,8 @@ void CScene::Render(float fTime)
 		(*iter)->Render(fTime);
 		++iter;
 	}
+
+	m_pGameMode->Render(fTime);
 }
 
 void CScene::PostRender(float fTime)
@@ -403,4 +427,43 @@ void CScene::SortInstText()
 		(*iter)->SetFontPos(Vector3(0.f, 20.f * i++, 0.f));
 	}
 
+}
+
+void CScene::SpawnWindow()
+{
+	std::list<CLayer*>::iterator iter = m_LayerList.begin();
+	std::list<CLayer*>::iterator iterEnd = m_LayerList.end();
+
+	char* strLayers[32] = {};
+	int i = 0;
+
+	static int item = 0;
+
+	for (; iter != iterEnd;++iter)
+	{
+		strLayers[i] = new char[256];
+
+		strcpy_s(strLayers[i++], (*iter)->GetName().length() + 1, (*iter)->GetName().c_str());
+
+		if (item == i - 1)
+		{
+			(*iter)->SpawnWindow();
+		}
+	}
+
+	if (GET_SINGLE(CEngine)->IsImgui())
+	{
+		if (ImGui::Begin("Layers"))
+		{
+			ImGui::ListBox("Layers", &item, strLayers, (int)m_LayerList.size());
+		}
+		ImGui::End();
+	}
+
+	size_t iSz = m_LayerList.size();
+
+	for (size_t i = 0; i < iSz; ++i)
+	{
+		delete[] strLayers[i];
+	}
 }

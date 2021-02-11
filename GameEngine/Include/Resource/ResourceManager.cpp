@@ -6,15 +6,14 @@
 #include "../Device.h"
 #include "Animation2DSequence.h"
 #include "StaticMesh.h"
-#include <iostream>
-#include <fstream>
+#include "ParticleSystem.h"
 
 DEFINITION_SINGLE(CResourceManager)
 
 CResourceManager::CResourceManager()	:
 	m_pDefaultMesh(nullptr),
 	m_pDefaultUIMesh(nullptr),
-	m_pDefaultTex(nullptr),
+	m_pNoiseTex(nullptr),
 	m_pPoint(nullptr),
 	m_pLinear(nullptr),
 	m_pAnisotropic(nullptr)
@@ -26,11 +25,12 @@ CResourceManager::~CResourceManager()
 {
 	SAFE_RELEASE(m_pDefaultMesh);
 	SAFE_RELEASE(m_pDefaultUIMesh);
-	SAFE_RELEASE(m_pDefaultTex);
+	SAFE_RELEASE(m_pNoiseTex);
 	SAFE_RELEASE_MAP(m_mapMesh);
 	SAFE_RELEASE_MAP(m_mapMaterial);
 	SAFE_RELEASE_MAP(m_mapAni2DSeq);
 	SAFE_RELEASE_MAP(m_mapTexture);
+	SAFE_RELEASE_MAP(m_mapParticle);
 	DESTROY_SINGLE(CShaderManager);
 	SAFE_RELEASE(m_pPoint);
 	SAFE_RELEASE(m_pLinear);
@@ -53,12 +53,12 @@ CMesh2D* CResourceManager::GetUIMesh() const
 	return m_pDefaultUIMesh;
 }
 
-CTexture* CResourceManager::GetDTex() const
+CTexture* CResourceManager::GetNoiseTex() const
 {
-	if (m_pDefaultTex)
-		m_pDefaultTex->AddRef();
+	if (m_pNoiseTex)
+		m_pNoiseTex->AddRef();
 
-	return m_pDefaultTex;
+	return m_pNoiseTex;
 }
 
 bool CResourceManager::Init()
@@ -66,6 +66,17 @@ bool CResourceManager::Init()
 	// Shader Manager 초기화
 	if (!GET_SINGLE(CShaderManager)->Init())
 		return false;
+
+	m_pNoiseTex = new CTexture;
+
+	m_pNoiseTex->SetName("Noise");
+
+	//m_pNoiseTex->CreateRandomTexture1DSRV();
+
+	m_pNoiseTex->LoadTexture("Noise", TEXT("Noise.png"));
+
+	m_pNoiseTex->SetTexture(10, (int)SHADER_CBUFFER_TYPE::CBUFFER_COMPUTE |
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
 
 	m_pDefaultMesh = new CMesh2D;
 
@@ -77,8 +88,6 @@ bool CResourceManager::Init()
 	CMaterial* pMaterial = CreateMaterial("Color");
 
 	pMaterial->SetShader("Standard2D");
-
-	m_pDefaultMesh->SetMaterial(pMaterial);
 
 	SAFE_RELEASE(pMaterial);
 
@@ -93,9 +102,13 @@ bool CResourceManager::Init()
 
 	pMtrl->SetShader("UI2D");
 
-	m_pDefaultUIMesh->SetMaterial(pMtrl);
-
 	SAFE_RELEASE(pMtrl);
+	
+	CMaterial* pParticleMtrl = CreateMaterial("Particle");
+
+	pParticleMtrl->SetShader("ParticleShader");
+
+	SAFE_RELEASE(pParticleMtrl);
 
 	m_pPoint = CreateSample(D3D11_FILTER_MIN_MAG_MIP_POINT);
 	m_pLinear = CreateSample(D3D11_FILTER_MIN_MAG_MIP_LINEAR);
@@ -149,17 +162,85 @@ bool CResourceManager::Init()
 	CreateMesh(MESH_TYPE::MT_2D, "Collider2DLine", D3D_PRIMITIVE_TOPOLOGY_LINELIST, vLnVtx, sizeof(Vector3), sizeof(vLnVtx) / sizeof(vLnVtx[0]),
 		D3D11_USAGE_IMMUTABLE);
 
+	Vector3 vLn[2] =
+	{
+		Vector3(0.f, 0.f, 0.f),
+		Vector3(1.f, 0.f, 0.f)
+	};
+
+	CreateMesh(MESH_TYPE::MT_2D, "Line", D3D_PRIMITIVE_TOPOLOGY_LINELIST, vLn,
+		sizeof(Vector3), sizeof(vLn) / sizeof(vLn[0]), D3D11_USAGE_IMMUTABLE);
+
+	CMaterial* pLineMtrl = CreateMaterial("Line");
+
+	pLineMtrl->SetShader("LineShader");
+
+	SAFE_RELEASE(pLineMtrl);
+
 	Vector3 vCircle[361] = {};
 
-	for (int i = 0; i < 361;++i)
+	for (int i = 0; i < 361; ++i)
 	{
 		float fAngle = DirectX::XMConvertToRadians((float)i);
 
 		vCircle[i] = Vector3(cosf(fAngle) * 0.5f, sinf(fAngle) * 0.5f, 0.f);
 	}
 
-	CreateMesh(MESH_TYPE::MT_2D, "Circle2D", D3D_PRIMITIVE_TOPOLOGY_LINESTRIP, 
+	CreateMesh(MESH_TYPE::MT_2D, "Circle2D", D3D_PRIMITIVE_TOPOLOGY_LINESTRIP,
 		vCircle, sizeof(Vector3), sizeof(vCircle) / sizeof(vCircle[0]), D3D11_USAGE_IMMUTABLE);
+
+	VertexColor vCircle2[361] = {};
+
+	for (int i = 0; i < 361; ++i)
+	{
+		float fAngle = DirectX::XMConvertToRadians((float)i);
+
+		vCircle2[i].vPos = Vector3(cosf(fAngle) * 0.5f, 0.f, sinf(fAngle) * 0.5f);
+		vCircle2[i].vColor = Vector4((sinf(fAngle) + 1.f) / 2.f, (cosf(fAngle) + 1.f) / 2.f, (sinf(fAngle) + 1.f) / 2.f, 1.f);
+		vCircle2[i].vUV = Vector2(0.f, -1.f);
+	}
+
+	CreateMesh(MESH_TYPE::MT_2D, "Circle", D3D_PRIMITIVE_TOPOLOGY_LINESTRIP,
+		vCircle2, sizeof(VertexColor), sizeof(vCircle2) / sizeof(vCircle2[0]), D3D11_USAGE_IMMUTABLE);
+
+	CMaterial* pC2CMtrl = CreateMaterial("C2C");
+
+	pC2CMtrl->SetShader("C2CShader");
+
+	SAFE_RELEASE(pC2CMtrl);
+
+	VertexColor tPoint = {};
+
+	CreateMesh(MESH_TYPE::MT_2D, "Particle", D3D_PRIMITIVE_TOPOLOGY_POINTLIST,
+		&tPoint, sizeof(VertexColor), 1, D3D11_USAGE_IMMUTABLE);
+
+	Basic tVertex[4] = {};
+
+	tVertex[0].vPos = Vector3(0.f, 1.f, 0.f);
+	tVertex[0].vUV = Vector2(0.f, 0.f);
+
+	tVertex[1].vPos = Vector3(1.f, 1.f, 0.f);
+	tVertex[1].vUV = Vector2(1.f, 0.f);
+
+	tVertex[2].vPos = Vector3(1.f, 0.f, 0.f);
+	tVertex[2].vUV = Vector2(1.f, 1.f);
+
+	tVertex[3].vPos = Vector3(0.f, 0.f, 0.f);
+	tVertex[3].vUV = Vector2(0.f, 1.f);
+
+	unsigned short pBasicIdx[6] =
+	{
+		0, 1, 2, 0, 2,3
+	};
+
+	CreateMesh(MESH_TYPE::MT_2D, "AngleMesh", D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+		tVertex, sizeof(Basic), 4, D3D11_USAGE_IMMUTABLE, pBasicIdx, 2, 6, D3D11_USAGE_IMMUTABLE, DXGI_FORMAT_R16_UINT);
+
+	CMaterial* pAngleMtrl = CreateMaterial("Angle");
+
+	pAngleMtrl->SetShader("AngleShader");
+
+	SAFE_RELEASE(pAngleMtrl);
 
 	std::vector<const TCHAR*> vecFileName;
 
@@ -560,90 +641,6 @@ void CResourceManager::ReleaseAni2DSeq(const std::string& strTag)
 		m_mapAni2DSeq.erase(iter);
 }
 
-//	연습용 코드
-
-ID3D11ShaderResourceView* CResourceManager::CreateRandomTexture1DSRV(ID3D11Device* device)
-{
-	XMFLOAT4 randomValues[1024];
-
-	for (int i = 0; i < 1024; ++i)
-	{
-		randomValues[i].x = MathHelper::RandF(-1.0f, 1.0f);
-		randomValues[i].y = MathHelper::RandF(-1.0f, 1.0f);
-		randomValues[i].z = MathHelper::RandF(-1.0f, 1.0f);
-		randomValues[i].w = MathHelper::RandF(-1.0f, 1.0f);
-	}
-
-	D3D11_SUBRESOURCE_DATA initData;
-	initData.pSysMem = randomValues;
-	initData.SysMemPitch = 1024 * sizeof(XMFLOAT4);
-	initData.SysMemSlicePitch = 0;
-
-	D3D11_TEXTURE1D_DESC texDesc;
-	texDesc.Width = 1024;
-	texDesc.MipLevels = 1;
-	texDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-	texDesc.Usage = D3D11_USAGE_IMMUTABLE;
-	texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	texDesc.CPUAccessFlags = 0;
-	texDesc.MiscFlags = 0;
-	texDesc.ArraySize = 1;
-
-	ID3D11Texture1D* randomTex = 0;
-
-	if (FAILED(DEVICE->CreateTexture1D(&texDesc, &initData, &randomTex)))
-	{
-		return nullptr;
-	}
-
-	D3D11_SHADER_RESOURCE_VIEW_DESC viewDesc;
-	viewDesc.Format = texDesc.Format;
-	viewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE1D;
-	viewDesc.Texture1D.MipLevels = texDesc.MipLevels;
-	viewDesc.Texture1D.MostDetailedMip = 0;
-
-	ID3D11ShaderResourceView* randomTexSRV = 0;
-	if (FAILED(DEVICE->CreateShaderResourceView(randomTex, &viewDesc, &randomTexSRV)))
-	{
-		SAFE_RELEASE(randomTex);
-	}
-
-	return randomTexSRV;
-}
-
-void CResourceManager::CreateBufferStreamOutput()
-{
-
-	struct Vertex
-	{
-
-	};
-
-#define MAX_VERTICES 10;
-
-	ID3D11Buffer* mStreamOutVB = nullptr;
-
-	D3D11_BUFFER_DESC vbd;
-	vbd.Usage = D3D11_USAGE_DEFAULT;
-	vbd.ByteWidth = sizeof(Vertex) * MAX_VERTICES;
-	vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER | D3D11_BIND_STREAM_OUTPUT;
-	vbd.CPUAccessFlags = 0;
-	vbd.MiscFlags = 0;
-
-	if (FAILED(DEVICE->CreateBuffer(&vbd, 0, &mStreamOutVB)))
-	{
-		return;
-	}
-}
-
-void CResourceManager::ReleaseVBSO()
-{
-	UINT offset = 0;
-
-	ID3D11Buffer* bufferArray[1] = { 0 };
-	CONTEXT->SOSetTargets(1, bufferArray, &offset);
-}
-
 ID3D11SamplerState* CResourceManager::CreateSample(D3D11_FILTER eFilter)
 {
 	D3D11_SAMPLER_DESC tDesc = {};
@@ -663,138 +660,47 @@ ID3D11SamplerState* CResourceManager::CreateSample(D3D11_FILTER eFilter)
 	return pSampler;
 }
 
+CParticleSystem* CResourceManager::CreateParticle(const std::string& strTag, bool bDynamic, int iCount, int iSize,int iRegister, int iType)
+{
+	CParticleSystem* pParticle = FindParticle(strTag);
+
+	if (pParticle)
+	{
+		SAFE_RELEASE(pParticle);
+		return nullptr;
+	}
+
+	pParticle = new CParticleSystem;
+
+	pParticle->SetName(strTag);
+
+	if (!pParticle->Init( bDynamic, iCount, iSize, iRegister, iType))
+	{
+		SAFE_RELEASE(pParticle);
+		return nullptr;
+	}
+
+	m_mapParticle.insert(std::make_pair(strTag, pParticle));
+
+	pParticle->AddRef();
+
+	return pParticle;
+}
+
+CParticleSystem* CResourceManager::FindParticle(const std::string& strTag)
+{
+	std::unordered_map<std::string, CParticleSystem*>::iterator iter = m_mapParticle.find(strTag);
+
+	if (iter == m_mapParticle.end())
+	{
+		return nullptr;
+	}
+
+	iter->second->AddRef();
+
+	return iter->second;
+}
+
 ID3D11ShaderReflectionVariable* InputA;
 ID3D11ShaderReflectionVariable* InputB;
 ID3D11ShaderReflectionVariable* Output;
-
-void CResourceManager::CreateBufferComputeShader()
-{
-	InputA = mFX->GetVariableByName("gInputA")->AsShaderResource();
-	InputB = mFX->GetVariableByName("gInputB")->AsShaderResource();
-	Output = mFX->GetVariableByName("gOutput")->AsUnorderedAccessView();
-
-	D3D11_BUFFER_DESC inputDesc;
-	inputDesc.Usage = D3D11_USAGE_DEFAULT;
-	inputDesc.ByteWidth = sizeof(Data) * mNumElements;
-	inputDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	inputDesc.CPUAccessFlags = 0;
-	inputDesc.StructureByteStride = sizeof(Data);
-	inputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-
-	D3D11_SUBRESOURCE_DATA vinitDataA;
-	vinitDataA.pSysMem = &dataA[0];
-
-	ID3D11Buffer* bufferA = 0;
-
-	if (FAILED(DEVICE->CreateBuffer(&inputDesc, &vinitDataA, &bufferA)))
-	{
-		return;
-	}
-
-	D3D11_BUFFER_DESC outputDesc;
-	outputDesc.Usage = D3D11_USAGE_DEFAULT;
-	outputDesc.ByteWidth = sizeof(Data) * mNumElements;
-	outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
-	outputDesc.CPUAccessFlags = 0;
-	outputDesc.StructureByteStride = sizeof(Data);
-	outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-
-	ID3D11Buffer* mOutputBuffer;
-	if (FAILED(DEVICE->CreateBuffer(&outputDesc, 0, &mOutputBuffer)))
-	{
-		return;
-	}
-
-	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
-	srvDesc.Format = DXGI_FORMAT_UNKNOWN;
-	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
-	srvDesc.BufferEx.FirstElement = 0;
-	srvDesc.BufferEx.Flags = 0;
-	srvDesc.BufferEx.NumElements = mNumElements;
-
-	DEVICE->CreateShaderResourceView(bufferA, &srvDesc, &mInputASRV);
-	DEVICE->CreateShaderResourceView(bufferB, &srvDesc, &mInputBSRV);
-
-	D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc;
-	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-	uavDesc.Buffer.FirstElement = 0;
-	uavDesc.Buffer.Flags = 0;
-	uavDesc.Buffer.NumElements = mNumElements;
-
-	DEVICE->CreateUnorderedAccessView(mOutputBuffer, &uavDesc, &mOutputUAV);
-}
-
-void CResourceManager::SetInputA(ID3D11ShaderResourceView* srv)
-{
-	InputA->SetResource(srv);
-}
-
-void CResourceManager::SetInputB(ID3D11ShaderResourceView* srv)
-{
-	InputB->SetResource(srv);
-}
-
-void CResourceManager::SetOutput(ID3D11UnorderedAccessView* uav)
-{
-	Output->SetUnorderedAccessView(uav);
-}
-
-void CResourceManager::CreateBufferCS()
-{
-	D3D11_BUFFER_DESC outputDesc;
-	outputDesc.Usage = D3D11_USAGE_STAGING;
-	outputDesc.BindFlags = 0;
-	outputDesc.ByteWidth = sizeof(Data) * mNumElements;
-	outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-	outputDesc.StructureByteStride = sizeof(Data);
-	outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-
-	ID3D11Buffer* mOutputDebugBuffer;
-	if (FAILED(DEVICE->CreateBuffer(&outputDesc, 0, &mOutputDebugBuffer)))
-	{
-		return;
-	}
-
-	CONTEXT->CopyResource(mOutputDebugBuffer, mOutputBuffer);
-
-	D3D11_MAPPED_SUBRESOURCE mappedData;
-	CONTEXT->Map(mOutputDebugBuffer, 0, D3D11_MAP_READ, 0, &mappedData);
-	Data* dataView = reinterpret_cast<Data*>(mappedData.pData);
-
-	std::ofstream fout;
-
-	for (int i = 0; i < mNumElements; ++i)
-	{
-		fout << "(" << dataView[i].v1.x << ", " <<
-			dataView[i].v1.y << ", " <<
-			dataView[i].v1.z << ", " <<
-			dataView[i].v2.x << ", " <<
-			dataView[i].v2.y << ") " << std::endl;
-	}
-
-	CONTEXT->Unmap(mOutputDebugBuffer, 0);
-
-	fout.close();
-
-	std::vector<Data> dataA(mNumElements);
-	std::vector<Data> dataB(mNumElements);
-
-	for (int i = 0; i < mNumElements; ++i)
-	{
-		dataA[i].v1 = XMFLOAT3(i, i, i);
-		dataA[i].v2 = XMFLOAT2(i, 0);
-
-		dataB[i].v1 = XMFLOAT3(-i, i, 0.0f);
-		dataB[i].v2 = XMFLOAT2(0, -i);
-	}
-
-	D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc;
-	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-	uavDesc.Buffer.FirstElement = 0;
-	uavDesc.Buffer.Flags = D3D11_BUFFER_UAV_FLAG_APPEND;
-	uavDesc.Buffer.NumElements = mNumElements;
-}
-
-// 연습용 코드

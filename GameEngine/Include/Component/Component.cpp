@@ -44,6 +44,11 @@ CLayer* CComponent::GetLayer() const
 	return m_pLayer;
 }
 
+CScene* CComponent::GetScene() const
+{
+	return m_pScene;
+}
+
 bool CComponent::IsStart() const
 {
 	return m_bStart;
@@ -52,6 +57,16 @@ bool CComponent::IsStart() const
 bool CComponent::Init()
 {
 	return true;
+}
+
+bool CComponent::Init(const char* pFileName, const std::string& strPathKey)
+{
+	return false;
+}
+
+bool CComponent::Init(FILE* pFile)
+{
+	return false;
 }
 
 void CComponent::Start()

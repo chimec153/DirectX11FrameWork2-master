@@ -237,7 +237,7 @@ bool CCollision::CollisionOBB2DToCircle(CColliderOBB2D* pSrc, CColliderCircle* p
 
 bool CCollision::CollisionOBB2DToCircle(Vector3& vCross, const OBBInfo& tSrc, const CircleInfo& tDest)
 {
-	Vector3 vDst = tSrc.vPos - tDest.vCenter;
+	Vector3 vDst = tSrc.vPos - Vector3(tDest.vCenter.x, tDest.vCenter.y, 0.f);
 
 	for (int i = 0; i < (int)WORLD_AXIS::AXIS_Z; ++i)
 	{

@@ -85,13 +85,13 @@ BOOL CMainFrame::OnCreateClient(LPCREATESTRUCT lpcs, CCreateContext* pContext)
 		WS_VISIBLE | WS_BORDER | WS_CHILD, m_hSplit.IdFromRowCol(0, 1));
 
 	m_hSplit.CreateView(0, 0, RUNTIME_CLASS(CGameEditorView),
-		CSize(1500, 1080), pContext);
+		CSize(860, 1080), pContext);
 
 	m_hSplitChild.CreateView(0, 0, RUNTIME_CLASS(CWorldDlg),
-		CSize(420, 500), pContext);
+		CSize(420, 240), pContext);
 
 	m_hSplitChild.CreateView(1, 0, RUNTIME_CLASS(CDetailDlg),
-		CSize(420, 580), pContext);
+		CSize(420, 480), pContext);
 
 	m_hSplit.SetActiveWindow();
 

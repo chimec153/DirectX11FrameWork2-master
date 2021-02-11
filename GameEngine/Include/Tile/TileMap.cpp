@@ -44,7 +44,7 @@ CTileMap::~CTileMap()
 	SAFE_DELETE_ARRAY(m_pColIdx);
 }
 
-void CTileMap::CreateTile(int x, int y, const Vector3& vSize, const Vector2& vStart, TILE_TYPE eType)
+void CTileMap::CreateTile(int x, int y, const Vector3& vSize, const Vector2& vStart,const Vector3& vPivot, TILE_TYPE eType)
 {
 	SAFE_RELEASE_VECLIST(m_vecTile);
 
@@ -55,7 +55,9 @@ void CTileMap::CreateTile(int x, int y, const Vector3& vSize, const Vector2& vSt
 
 	m_vTileSize = vSize;
 
-	SetWorldPos(vStart.x, vStart.y, 0.f);
+	Vector3 vMapPos = GetWorldPos();
+
+	SetWorldPos(vStart.x, vStart.y, vMapPos.z);
 
 	CMaterial* pMat = GET_SINGLE(CResourceManager)->FindMaterial("Color");
 
@@ -76,10 +78,10 @@ void CTileMap::CreateTile(int x, int y, const Vector3& vSize, const Vector2& vSt
 			pTile->m_iY = j;
 
 			Vector3 vPos = Vector3(vSize.x * i + vSize.x / 2.f,
-				vSize.y * (y - j- 1) + vSize.y / 2.f, 0.f);
+				vSize.y * (y - j- 1) + vSize.y / 2.f, vMapPos.z);
 
 			pTile->SetWorldPos(vPos);
-			pTile->SetPivot(0.5f, 0.5f, 0.f);
+			pTile->SetPivot(vPivot);
 
 			pTile->CSceneComponent::PostUpdate(0.f);
 			pTile->SetInstance();
@@ -109,7 +111,7 @@ int CTileMap::GetIndex(const Vector2& vPos)	const
 {
 	Vector3 _vPos = Vector3(vPos.x, vPos.y, 0.f);
 
-	_vPos -= GetWorldPos();
+	_vPos -= GetWorldPos();// -GetPivot() * GetWorldScale();
 
 	if (_vPos.x < 0.f || 
 		_vPos.y < 0.f)
@@ -276,6 +278,48 @@ CTile* CTileMap::GetTile(int idx)	const
 	return m_vecTile[idx];
 }
 
+void CTileMap::AddTileRenderState(const std::string& strKey)
+{
+	size_t iSz = m_vecTile.size();
+
+	for (size_t i = 0; i < iSz; ++i)
+	{
+		m_vecTile[i]->AddRenderState(strKey);
+	}
+}
+
+void CTileMap::AddAnim(const std::vector<int>& vecFrame, float fTime)
+{
+	std::vector<Vector2>	vecFrm;
+
+	size_t iFrameSz = vecFrame.size();
+
+	Vector2 vSize = m_vecTile[0]->GetTextureSize();
+
+	int iSizeX = (int)(vSize.x / 16);
+
+	for (size_t i = 0; i < iFrameSz; ++i)
+	{
+		int iFrm = vecFrame[i];
+
+		vecFrm.push_back(Vector2(iFrm% iSizeX, iFrm/iSizeX));
+	}
+
+	size_t iSz = m_vecTile.size();
+
+	for (size_t i = 0; i < iSz; ++i)
+	{
+		Vector2 vIdx = m_vecTile[i]->GetTexIdx();
+		Vector2 vFront = vecFrm.front();
+
+		if (vIdx.x == vFront.x &&
+			vIdx.y == vFront.y)
+		{
+			m_vecTile[i]->SetAnim(vecFrm, fTime);
+		}
+	}
+}
+
 bool CTileMap::Init()
 {
 	if (!CSceneComponent::Init())
@@ -298,15 +342,46 @@ void CTileMap::PostUpdate(float fTime)
 {
 	CSceneComponent::PostUpdate(fTime);
 
-	if (m_bAni)
+	Resolution tRS = RESOLUTION;
+
+	CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
+
+	Vector3 vRT = pCam->GetWorldPos() + 
+		Vector3((float)tRS.iWidth / 2.f + 16.f, (float)tRS.iHeight / 2.f + 16.f, 0.f) * pCam->GetPivot();
+	Vector3 vLB = pCam->GetWorldPos() - 
+		Vector3((float)tRS.iWidth / 2.f + 16.f, (float)tRS.iHeight / 2.f + 16.f, 0.f) * pCam->GetPivot();
+
+	SAFE_RELEASE(pCam);
+
+	Vector3 vPos = GetWorldPos();
+
+	vRT -= vPos;
+	vLB -= vPos;
+
+	vRT /= m_vTileSize;
+	vLB /= m_vTileSize;
+
+	int iStartX = (int)vLB.x;
+	int iStartY = (int)vLB.y;
+
+	int iEndX = (int)vRT.x;
+	int iEndY = (int)vRT.y;
+
+	iStartX = iStartX < 0 ? 0 : iStartX;
+	iStartY = iStartY < 0 ? 0 : iStartY;
+
+	iEndX = iEndX >= m_iCountX ? m_iCountX - 1 : iEndX;
+	iEndY = iEndY >= m_iCountY ? m_iCountY - 1 : iEndY;
+
+	for (int x = iStartX; x <= iEndX; ++x)
 	{
+		for (int y = iStartY; y <= iEndY; ++y)
+		{
+			int idx = y * m_iCountX + x;
 
+			m_vecTile[idx]->PostUpdate(fTime);
+		}
 	}
-/*
-	size_t iSz = m_vecTile.size();
-
-	for (size_t i = 0; i < iSz; ++i)
-		m_vecTile[i]->PostUpdate(fTime);*/
 }
 
 void CTileMap::Collision(float fTime)
@@ -322,8 +397,10 @@ void CTileMap::PreRender(float fTime)
 
 	CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
 
-	Vector3 vRT = pCam->GetWorldPos() +Vector3((float)tRS.iWidth, (float)tRS.iHeight, 0.f) * pCam->GetPivot();
-	Vector3 vLB = pCam->GetWorldPos() - Vector3((float)tRS.iWidth, (float)tRS.iHeight, 0.f) * pCam->GetPivot();
+	Vector3 vRT = pCam->GetWorldPos() +
+		Vector3((float)tRS.iWidth / 2.f + 16.f, (float)tRS.iHeight / 2.f + 16.f, 0.f) * pCam->GetPivot();
+	Vector3 vLB = pCam->GetWorldPos() - 
+		Vector3((float)tRS.iWidth /2.f + 16.f, (float)tRS.iHeight / 2.f + 16.f, 0.f) * pCam->GetPivot();
 
 	SAFE_RELEASE(pCam);
 

@@ -11,6 +11,7 @@
 #include "Tile/TileMap.h"
 #include "Tile/Tile.h"
 #include "Component/Sound.h"
+#include "../GameMode/TileMode.h"
 
 CBullet::CBullet() :
 	m_fDist(0.f),
@@ -19,13 +20,23 @@ CBullet::CBullet() :
 	m_pMesh(nullptr),
 	m_pMap(nullptr),
 	m_pSnd(nullptr),
-	m_iCol(0)
+	m_iCol(0),
+	m_bFire(false),
+	m_pFire(nullptr),
+	m_bFixed(false),
+	m_pFixingObj(nullptr),
+	m_pMtrlMap(nullptr)
 {
 	m_iObjClassType = (int)OBJ_CLASS_TYPE::OCT_BULLET;
 }
 
 CBullet::CBullet(const CBullet& bullet) :
  	CObj(bullet)
+	, m_pSnd((CSound*)FindComByType<CSound>())
+	, m_bFire(bullet.m_bFire)
+	, m_pFire((CSpriteComponent*)FindSceneComponent("Fire"))
+	, m_bFixed(bullet.m_bFixed)
+	, m_pFixingObj(bullet.m_pFixingObj)
 {
 	m_fDist = 0.f;
 	m_fLimitDist = bullet.m_fLimitDist;
@@ -42,24 +53,23 @@ CBullet::CBullet(const CBullet& bullet) :
 	pRC->SetCallBack<CBullet>(COLLISION_STATE::END, this, &CBullet::ColEnd);
 
 	SAFE_RELEASE(pRC);
-	//m_pMesh->SetEndFunc<CBullet>(this, &CBullet::Destroy);
 
 	m_pMap = bullet.m_pMap;
 
 	if (m_pMap)
 		m_pMap->AddRef();
 
-	if (bullet.m_pSnd)
-	{
-		m_pSnd = bullet.m_pSnd->Clone();
-	}
-
-	else
-	{
-		m_pSnd = nullptr;
-	}
-
 	m_iCol = 0;
+
+	if (m_pFixingObj)
+	{
+		m_pFixingObj->AddRef();
+	}
+
+	m_pMtrlMap = bullet.m_pMtrlMap;
+
+	if (m_pMtrlMap)
+		m_pMtrlMap->AddRef();
 }
 
 CBullet::~CBullet()
@@ -67,6 +77,55 @@ CBullet::~CBullet()
 	SAFE_RELEASE(m_pMesh);
 	SAFE_RELEASE(m_pMap);
 	SAFE_RELEASE(m_pSnd);
+	SAFE_RELEASE(m_pFire);
+	SAFE_RELEASE(m_pFixingObj);
+	SAFE_RELEASE(m_pMtrlMap);
+}
+
+void CBullet::ChangeSprite(const std::string& strTag)
+{
+	m_pMesh->ChangeSequence(strTag);
+}
+
+void CBullet::SetFire(bool bFire)
+{
+	m_bFire = bFire;
+	m_pFire->Enable(m_bFire);
+
+	m_pSnd->SetSound("ArrowIgnite");
+	m_pSnd->Play(0.f);
+}
+
+void CBullet::SetFix(bool bFix)
+{
+	if (bFix)
+	{
+		m_pSnd->SetSoundAndPlay("Impact_Boss");
+	}
+
+	m_bFixed = bFix;
+}
+
+void CBullet::SetFixObj(CObj* pObj)
+{
+	SAFE_RELEASE(m_pFixingObj);
+
+	m_pFixingObj = pObj;
+
+	if (m_pFixingObj)
+	{
+		m_pFixingObj->AddRef();
+	}
+}
+
+CObj* CBullet::GetFixObj() const
+{
+	if (m_pFixingObj)
+	{
+		m_pFixingObj->AddRef();
+	}
+
+	return m_pFixingObj;
 }
 
 bool CBullet::Init()
@@ -74,8 +133,10 @@ bool CBullet::Init()
 	m_pMesh = CreateComponent<CSpriteComponent>("Mesh", m_pLayer);
 
 	m_pMesh->SetWorldRotX(180.f);
-	m_pMesh->SetTexture(REGISTER_TYPE::RT_DIF, "ani2", TEXT("pngegg.png"), TEXTURE_PATH, 0, 1, (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
 	m_pMesh->CreateSprite("Arrow", "Arrow", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("ArrowStop", "ArrowStop", LOOP_OPTION::LOOP);
+	m_pMesh->AddRenderState("NoCullBack");
+	m_pMesh->AddRenderState("ForeGround");
 
 	CMaterial* pMtrl = m_pMesh->GetMaterial();
 
@@ -127,14 +188,33 @@ bool CBullet::Init()
 	m_pSnd = CreateComponent<CSound>("Sound");
 
 	m_pSnd->SetSound("ArrowImpact1");
+	m_pSnd->SetMin(512.f);
+	m_pSnd->SetMax(1024.f);
+	m_pSnd->SetSceneComType(SCENE_COMPONENT_TYPE::SCT_UI);
 
 	m_pMesh->AddChild(m_pSnd);
+
+	m_pFire = CreateComponent<CSpriteComponent>("Fire", m_pLayer);
+
+	m_pFire->SetWorldScale(16.f, 16.f, 0.);
+	m_pFire->SetInheritScale(false);
+	m_pFire->SetPivot(0.5f, 0.5f, 0.f);
+	m_pFire->CreateSprite("Idle", "ArrowFire", LOOP_OPTION::LOOP);
+
+	m_pMesh->AddChild(m_pFire);
 
 	return true;
 }
 
 void CBullet::Start()
 {
+	CLayer* pMtrlLayer = m_pScene->FindLayer("1_MAT");
+
+	if (pMtrlLayer)
+	{
+		SAFE_RELEASE(m_pMtrlMap);
+		m_pMtrlMap = pMtrlLayer->GetTileMap();
+	}
 }
 
 void CBullet::Update(float fTime)
@@ -148,7 +228,7 @@ void CBullet::Update(float fTime)
 		m_pMap = pLayer->GetTileMap();
 	}
 
-	Vector3 vPos = GetWorldPos() -GetWorldAxis(WORLD_AXIS::AXIS_Y) * GetWorldScale() * GetPivot();
+	Vector3 vPos = GetWorldPos()-GetWorldAxis(WORLD_AXIS::AXIS_Y) * GetWorldScale() * GetPivot();
 
 	char cCol = m_pMap->GetTileCol(Vector2(vPos.x, vPos.y));
 
@@ -160,9 +240,11 @@ void CBullet::Update(float fTime)
 
 		if (pTile)
 		{
-			Vector3 vTilePos = pTile->GetWorldPos();// -pTile->GetWorldScale() * pTile->GetPivot();
+			Vector3 vTilePos = pTile->GetWorldPos();// -pTile->GetWorldScale() * 0.5f;
 
 			vDir = vPos - vTilePos;
+
+			vDir.z = 0.f;
 		}			
 
 		vDir.Normalize();
@@ -181,21 +263,33 @@ void CBullet::Update(float fTime)
 		if (fAngle > 45.f && fAngle < 135.f)	// ╩С
 		{
 			vNorm = Vector3(0.f, 1.f, 0.f);
+
+			m_pSnd->SetSound("MinorArrowImpact1");
+			m_pSnd->Play(fTime);
 		}
 
 		else if (fAngle > 135.f || fAngle < -135.f)	//	аб
 		{
 			vNorm = Vector3(-1.f, 0.f, 0.f);
+
+			m_pSnd->SetSound("MinorArrowImpact4");
+			m_pSnd->Play(fTime);
 		}
 
 		else if (fAngle < 45.f && fAngle > -45.f)	//	©Л
 		{
 			vNorm = Vector3(1.f, 0.f, 0.f);
+
+			m_pSnd->SetSound("MinorArrowImpact2");
+			m_pSnd->Play(fTime);
 		}
 
 		else	//	го
 		{
 			vNorm = Vector3(0.f, -1.f, 0.f);
+
+			m_pSnd->SetSound("MinorArrowImpact3");
+			m_pSnd->Play(fTime);
 		}
 
 		Vector3 vArrowDir = -GetWorldAxis(WORLD_AXIS::AXIS_Y);
@@ -210,7 +304,10 @@ void CBullet::Update(float fTime)
 		if (vNorm.y == 0.f)
 			fAngle *= -1.f;
 
-		fAngle = 180.f - fAngle;
+		if (vArrowDir.y != 1.f && vArrowDir.y != -1.f)
+		{
+			fAngle = 180.f - fAngle;
+		}
 
 		AddWorldRotZ(-fAngle);
 	}
@@ -223,6 +320,51 @@ void CBullet::Update(float fTime)
 	if (m_fDist >= m_fLimitDist)
 	{
 		m_fSpeed = 0.f;
+		m_bFire = false;
+
+		m_pSnd->SetSound("Arrow_windloop");
+		m_pSnd->Stop();
+	}
+
+	char cMtrl = m_pMtrlMap->GetTileCol(Vector2(vPos.x, vPos.y));
+
+	char strTile[(int)MAT_TYPE::END] =
+	{
+		(char)atoi("4098"),
+		(char)atoi("4099"),
+		(char)atoi("4100"),
+		(char)atoi("4101"),
+		(char)atoi("4102"),
+		(char)atoi("4103"),
+		(char)atoi("4104"),
+		(char)atoi("4105"),
+		(char)atoi("4106"),
+		(char)atoi("4107"),
+		(char)atoi("4108"),
+		(char)atoi("4109"),
+		(char)atoi("4110"),
+		(char)atoi("4111"),
+		(char)atoi("4112"),
+		(char)atoi("4116"),
+		(char)atoi("4118"),
+		(char)atoi("4119"),
+		(char)atoi("4125"),
+		(char)atoi("4145"),
+		(char)atoi("4146"),
+		(char)atoi("4147"),
+		(char)atoi("4148"),
+		(char)atoi("4149"),
+		(char)atoi("4140"),
+		(char)atoi("4141"),
+		(char)atoi("4142"),
+		(char)atoi("4153"),
+		(char)atoi("4158")
+	};
+
+	if (cMtrl == strTile[(int)MAT_TYPE::WATER])
+	{
+		m_pSnd->SetSound("InWaterLoop");
+		m_pSnd->Play(fTime);
 	}
 }
 
@@ -234,7 +376,6 @@ void CBullet::PostUpdate(float fTime)
 void CBullet::Collision(float fTime)
 {
 	CObj::Collision(fTime);
-
 }
 
 void CBullet::PreRender(float fTime)
@@ -267,7 +408,7 @@ void CBullet::ColInit(CCollider* pSrc, CCollider* pDest, float fTime)
 	{
 		CPlayer* pObj = (CPlayer*)pDest->GetObj();
 
-		if (!pObj->IsCharged())
+		if (!pObj->IsCharged() && !m_bFixed)
 		{
 			CObj* pCharge = m_pScene->CreateCloneObj("Charge", "Charge", m_pLayer, m_pScene->GetSceneType());
 
@@ -282,12 +423,22 @@ void CBullet::ColInit(CCollider* pSrc, CCollider* pDest, float fTime)
 			SAFE_RELEASE(pCharge);
 
 			pObj->Charge();
+
+			m_pSnd->SetSound("Arrow_windloop");
+			m_pSnd->Stop();
+
+			m_pSnd->SetSound("Pickuparrow");
+			m_pSnd->Play(fTime);
+
 			Destroy();
 		}
 	}
 
-	else if (strDst == "LeftHandBody" || 
-		strDst == "RightHandBody")
+	else if (strDst == "HeadBody" ||
+		strDst == "LeftHandBody" || 
+		strDst == "RightHandBody" || 
+		strDst == "CubeBody" ||
+		strDst == "IceBody")
 	{
 		Vector3 vSrcPos = pSrc->GetWorldPos();
 
@@ -304,11 +455,17 @@ void CBullet::ColInit(CCollider* pSrc, CCollider* pDest, float fTime)
 			if (- vExtent.y / vExtent.x * (vCrs.x - vDstPos.x) + vDstPos.y < vCrs.y)
 			{
 				vNrm = Vector3(0.f, 1.f, 0.f);
+
+				m_pSnd->SetSound("MinorArrowImpact1");
+				m_pSnd->Play(fTime);
 			}
 
 			else
 			{
 				vNrm = Vector3(-1.f, 0.f, 0.f);
+
+				m_pSnd->SetSound("MinorArrowImpact4");
+				m_pSnd->Play(fTime);
 			}
 		}
 
@@ -317,13 +474,25 @@ void CBullet::ColInit(CCollider* pSrc, CCollider* pDest, float fTime)
 			if (-vExtent.y / vExtent.x * (vCrs.x - vDstPos.x) + vDstPos.y < vCrs.y)
 			{
 				vNrm = Vector3(1.f, 0.f, 0.f);
+
+				m_pSnd->SetSound("MinorArrowImpact2");
+				m_pSnd->Play(fTime);
 			}
 
 			else
 			{
 				vNrm = Vector3(0.f, -1.f, 0.f);
+
+				m_pSnd->SetSound("MinorArrowImpact3");
+				m_pSnd->Play(fTime);
 			}
 		}
+
+		m_pSnd->SetSound("Arrow_windloop");
+		m_pSnd->Stop();
+
+		m_pSnd->SetSound("arrow_retrieval");
+		m_pSnd->Stop();
 
 		Vector3 vReflect = {};
 

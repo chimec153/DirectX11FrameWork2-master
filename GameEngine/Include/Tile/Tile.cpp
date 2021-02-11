@@ -69,16 +69,16 @@ const Vector2 CTile::GetTextureSize() const
 	return m_pMaterial->GetTextureSize();
 }
 
-void CTile::SetAnim(const Vector2& iStart, int iCount, float fMaxTime)
+void CTile::SetAnim(const std::vector<Vector2>& vecFrame,float fFrameTime)
 {
-	for (int i = 0; i < iCount; ++i)
-	{
-		Vector2 vFrm = iStart + Vector2((float)i, 0.f);
+	size_t iSz = vecFrame.size();
 
-		m_vecTexIdx.push_back(vFrm);
+	for (int i = 0; i < iSz; ++i)
+	{
+		m_vecTexIdx.push_back(vecFrame[i]);
 	}
 
-	m_fMaxTime = fMaxTime;
+	m_fMaxTime = fFrameTime;
 
 	m_bAnim = true;
 }
@@ -107,9 +107,9 @@ void CTile::PostUpdate(float fTime)
 	{
 		m_fFrameTime += fTime;
 
-		while (m_fFrameTime >= m_fMaxTime)
+		while (m_fFrameTime >= m_fMaxTime * 4.f)
 		{
-			m_fFrameTime -= m_fMaxTime;
+			m_fFrameTime -= m_fMaxTime * 4.f;
 
 			++m_iFrame;
 

@@ -36,6 +36,13 @@ cbuffer Sprite	:	register(b2)
 	float2	g_vSize;
 };
 
+cbuffer Global	:	register(b3)
+{
+	float	g_fDeltaTime;
+	float	g_fAccTime;
+	float2	g_vNoiseSize;
+};
+
 cbuffer Fade	:	register(b10)
 {
 	float4	g_vFade;
@@ -44,8 +51,8 @@ cbuffer Fade	:	register(b10)
 };
 
 Texture2D gDiffuseMap	:	register(t0);
-Texture2D gRandomTex	:	register(t1);
 Texture2DArray gArrayTex	:	register(t9);
+Texture2D gRandomTex	:	register(t10);
 
 SamplerState g_sPoint	:	register(s0);
 SamplerState g_sLinear	:	register(s1);
@@ -61,349 +68,74 @@ float2 ComputeUV(float2 vUV)
 
 	float2 output = (float2)0.f;
 
-	if (vUV.x > 0.f)
-		output.x = g_vEnd.x / g_vSize.x;
-
-	else
-		output.x = g_vStart.x / g_vSize.x;
-
-	if (vUV.y > 0.f)
-		output.y = g_vEnd.y / g_vSize.y;
-
-	else
-		output.y = g_vStart.y / g_vSize.y;
+	output.x = ((g_vEnd.x - g_vStart.x) * vUV.x + g_vStart.x) / g_vSize.x;
+	output.y = ((g_vEnd.y - g_vStart.y) * vUV.y + g_vStart.y) / g_vSize.y;
 
 	return output;
 }
 
-// 연습용 코드
-float3 RandUnitVec3(float offset)
+static float gaussian5x5[25] =	
 {
-	float u = (gGameTime + offset);
+	0.003765, 0.015019, 0.023792, 0.015019, 0.003765,
+	0.015019, 0.059912, 0.094907, 0.059912, 0.015019,
+	0.023792, 0.094907, 0.150342, 0.094907, 0.023792,
+	0.015019, 0.059912, 0.094907, 0.059912, 0.015019,
+	0.003765, 0.015019, 0.023792, 0.015019, 0.003765,
+};
 
-	float3 v = gRandomTex.SampleLevel(samLinear, u, 0).xyz;
+float gaussian5x5Sample(in int2 vUV, in texture2D RandomTex)
+{
+	float4 vRand = (float4)0.f;
 
-	return normalize(v);
+	vRand += RandomTex[vUV];
+
+	//for (int i = 0; i < 5; ++i)
+	//{
+	//	for (int j = 0; j < 5; ++j)
+	//	{
+	//		vRand += RandomTex[vUV + int2(i-2, j-2)] * gaussian5x5[i * 5 + j];
+	//	}
+	//}
+
+	return vRand.x;
 }
 
-GeometryShader gsStreamOut = ConstructGSWithSO(ComplieShader(gs_5_0, GS()),
-	"POSITION.xyz; VELOCITY.xyz; SIZE.xy; AGE.x; TYPE.x");
-
-technique11 SOTech
+float Rand(in float fRand)
 {
-	pass P0
+	float2 vUV = float2(fRand + g_fAccTime, g_fAccTime);
+
+	vUV.y += sin(vUV.x * 6.283184f);
+
+	if (vUV.x < 0)
 	{
-		SetVertexShader(CompileShader(vs_5_0, VS()));
-		SetGeometryShader(gsStreamOut);
-		SetPixelShader(CompileShader(ps_5_0, PS()));
-	};
-};
-
-struct Vertex
-{
-	float3 InitialPosW	:	POSITION;
-	float3 InitialVelW	:	VELOCITY;
-	float2 SizeW	:	SIZE;
-	float Age : AGE;
-	uint Type	:	TYPE;
-};
-
-DepthStencilState DisableDepth
-{
-	DepthEnable = FALSE;
-	DepthWriteMask = ZERO;
-};
-
-GeometryShader gsStreamOut = ConstructGSWithSO(
-	CompileShader(gs_5_0, StreamOutGS()),
-	"POSITION.xyz; VELOCITY.xyz; SIZE.xy; AGE.x; TYPE.x");
-
-technique10 StreamOutTech
-{
-	pass P0
-	{
-		SetVertexShader(CompileShader(vs_5_0, StreamOutVS()));
-		SetGeometryShader(gsStreamOut);
-
-		SetPixelShader(NULL);
-
-		SetDepthStencilState(DisableDepth, 0);
-	};
-};
-
-cbuffer cbPerFrame
-{
-	float3 gEyePosW;
-
-	float3 gEmitPosW;
-	float3 gEmitDirW;
-	float gGameTime;
-	float gTimeStep;
-	float4x4 gViewProj;
-};
-
-cbuffer cbFixed
-{
-	float3 gAccelW = { 0.0f, 7.8f, 0.0f };
-
-	float2 gQuadTexC[4] =
-	{
-		float2(0.0f, 1.0f),
-		float2(1.0f, 1.0f),
-		float2(0.0f, 0.0f),
-		float2(1.0f, 0.0f)
-	};
-};
-
-Texture2DArray gTexArray;
-
-Texture1D gRandomTex;
-
-SamplerState samLinear
-{
-	Filter = MIN_MAG_MIP_LINEAR;
-	AddressU = WRAP;
-	AddressV = WRAP;
-};
-
-DepthStencilState DisableDepth
-{
-	DepthEnable = FALSE;
-	DepthWriteMask = ZERO;
-};
-
-DepthStencilState NoDepthWrites
-{
-	DepthEnable = TRUE;
-	DepthWriteMask = ZERO;
-};
-
-BlendState AdditiveBlending
-{
-	AlphaToCoverageEnable = FALSE;
-	BlendEnable[0] = TRUE;
-	SrcBlend = SRC_ALPHA;
-	DestBlend = ONE;
-	BlendOp = ADD;
-	SrcBlendAlpha = ZERO;
-	DestBlendAlpha = ZERO;
-	BlendOpAlpha = ADD;
-	RenderTargetWriteMask[0] = 0x0F;
-};
-
-#define PT_EMITTER	0
-#define PT_FLARE	1
-
-struct Particle
-{
-	float3 InitialPosW	:	POSITION;
-	float3	InitialVelW	:	VELOCITY;
-	float2	SizeW	:	SIZE;
-	float	Age : AGE;
-	uint	Type	:	TYPE;
-};
-
-Particle StreamOutVS(Particle vin)
-{
-	return vin;
-}
-
-[maxvertexcount(2)]
-void StreamOutGS(point Particle gin[1],
-	inout PointStream<Particle> ptStream)
-{
-	gin[0].Age += gTimeStep;
-
-	if (gin[0].Type == PT_EMITTER)
-	{
-		if (gin[0].Age > 0.005f)
-		{
-			float3 vRandom = RandUnitVec3(0.0f);
-			vRandom.x *= 0.5f;
-			vRandom.z *= 0.5f;
-
-			Particle p;
-			p.InitialPosW = gEmitPosW.xyz;
-			p.InitialVelW = 4.0f * vRandom;
-			p.SizeW = float2(3.0f, 3.0f);
-			p.Age = 0.0f;
-			p.Type = PT_FLARE;
-
-			ptStream.Append(p);
-
-			gin[0].Age = 0.0f;
-		}
-
-		ptStream.Append(gin[0]);
+		vUV.x= -(int)vUV.x + 1 + vUV.x;
 	}
 
 	else
 	{
-		if (gin[0].Age <= 1.0f)
-			ptStream.Append(gin[0]);
+		vUV.x = frac(vUV.x);
 	}
-}
 
-struct VertexOut
-{
-	float3 PosW	:	POSITION;
-	float2 SizeW	:	SIZE;
-	float4 Color	:	COLOR;
-	uint Type	:	TYPE;
-};
-
-VertexOut DrawVS(Particle vin)
-{
-	VertexOut vout;
-
-	float t = vin.Age;
-
-	vout.PosW = 0.5f * t * t * gAccelW + t * vin.InitialVelW + vin.InitialPosW;
-
-	float opacity = 1.0f - smoothstep(0.0f, 1.0f, t / 1.0f);
-	vout.Color = float4(1.0f, 1.0f, 1.0f, opacity);
-
-	vout.SizeW = vin.SizeW;
-	vout.Type = vin.Type;
-
-	return vout;
-}
-
-struct GeoOut
-{
-	float4 PosH	:	SV_Position;
-	float4 Color	:	COLOR;
-	float2 Tex	:	TEXCOORD;
-};
-
-[maxvertexcount(4)]
-void DrawGS(point VertexOut gin[1],
-	inout TriangleStream<GeoOut> triStream)
-{
-	if (gin[0].Type != PT_EMITTER)
+	if (vUV.y < 0)
 	{
-		float3 look = normalize(gEyePosW.xyz - gin[0].PosW);
-		float3 right = normalize(cross(float3(0, 1, 0), look));
-		float3 up = cross(look, right);
-
-		float halfWidth = 0.5f * gin[0].SizeW.x;
-		float halfHeight = 0.5f * gin[0].SizeW.y;
-
-		float4 v[4];
-		v[0] = float4(gin[0].PosW + halfWidth * right -
-			halfHeight * up, 1.0f);
-		v[1] = float4(gin[0].PosW + halfWidth * right +
-			halfHeight * up, 1.0f);
-		v[2] = float4(gin[0].PosW - halfWidth * right -
-			halfHeight * up, 1.0f);
-		v[3] = float4(gin[0].PosW - halfWidth * right +
-			halfHeight * up, 1.0f);
-
-		GeoOut gout;
-		[unroll]
-		for (int i = 0; i < 4; ++i)
-		{
-			gout.PosH = mul(v[i], gViewProj);
-			gout.Tex = gQuadTexC[i];
-			gout.Color = gin[0].Color;
-			triStream.Append(gout);
-		}
+		vUV.y = -(int)vUV.y + 1 + vUV.y;
 	}
-}
 
-float4 DrawPS(GeoOut pin) : SV_TARGET
-{
-	return gTexArray.Sample(samLinear, float3(pin.Tex, 0)) * pin.Color;
-}
-
-technique11 DrawTech
-{
-	pass P0
+	else
 	{
-		SetVertexShader(CompileShader(vs_5_0, DrawVS()));
-		SetGeometryShader(CompileShader(gs_5_0, DrawGS()));
-		SetPixelShader(CompileShader(ps_5_0, DrawPS()));
+		vUV.y = frac(vUV.y);
+	}
+	
+	vUV = vUV * g_vNoiseSize;
 
-		SetBlendState(AdditiveBlending, float4(0.0f, 0.0f, 0.0f, 0.0f),
-			0xffffffff);
-		SetDepthStencilState(NoDepthWrites, 0);
-	};
-};
-
-struct Data
-{
-	float3 v1;
-	float2 v2;
-};
-
-StructuredBuffer<Data> gInputA;
-StructuredBuffer<Data> gInputB;
-
-RWStructuredBuffer<Data> gOutput;
-
-Buffer<float4> typedBuffer1;
-Buffer<float> typedBuffer2;
-Buffer<float2> typedBuffer3;
-
-[numthreads(32,1,1)]
-void CS(int3 dtid : SV_DispatchThreadID)
-{
-	gOutput[dtid.x].v1 = gInputA[dtid.x].v1 + gInputB[dtid.x].v1;
-	gOutput[dtid.x].v2 = gInputB[dtid.x].v2 + gInputB[dtid.x].v2;
+	return gaussian5x5Sample(vUV, gRandomTex);
 }
 
-Texture2D gInputA;
-Texture2D gInputB;
-RWTexture2D<float4> gOutput;
-
-[numthreads(16,16,1)]
-void CS(int3 dispatchThreadID : SV_DispatchThreadID)
+float3 RandUnitVec3(float offset)
 {
-	gOutput[dispatchThreadID.xy] =
-		gInputA[dispatchThreadID.xy] +
-		gInputB[dispatchThreadID.xy];
+	float u = (g_fDeltaTime + offset);
+
+	float3 v = gRandomTex.SampleLevel(g_sLinear, u, 0).xyz;
+
+	return normalize(v);
 }
-
-struct Particle
-{
-	float3 Position;
-	float3 Velocity;
-	float3 Acceleration;
-};
-
-float TimeStep = 1.0f / 60.0f;
-
-ConsumeStructuredBuffer<Particle> gInput;
-AppendStructuredBuffer<Particle> gOutput;
-[numthreads(16,16,1)]
-void CS()
-{
-	Particle p = gInput.Consume();
-
-	p.Velocity += p.Acceleration * TimeStep;
-	p.Position += p.Velocity * TimeStep;
-
-	gOutput.Append(p);
-}
-
-groupshared float4 gCache[256];
-
-
-Texture2D gInput;
-RWTexture2D<float4> gOutput;
-
-groupshared float4 gCache[256];
-
-[numthreads(256,1,1)]
-void CS(int3 groupThreadID : SV_GroupThreadID,
-	int3 dispatchThreadID : SV_DispatchThreadID)
-{
-	gCache[groupThreadID.x] = gInput[dispatchThreadID.xy];
-
-	GroupMemoryBarrierWithGroupSync();
-
-	float4 left = gCache[groupThreadID.x - 1];
-	float4 right = gCache[groupThreadID.x + 1];
-}
-
-// 연습용 코드

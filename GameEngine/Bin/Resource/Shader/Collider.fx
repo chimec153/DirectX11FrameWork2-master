@@ -23,7 +23,7 @@ PS_OUTPUT_COLOR ColliderPS(VS_COLLIDER_OUTPUT input)
 {
 	PS_OUTPUT_COLOR output = (PS_OUTPUT_COLOR)0;
 
-	output.vColor = g_vDif * g_vFade;
+	output.vColor = g_vDif;
 
 	return output;
 }

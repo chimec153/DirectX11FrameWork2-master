@@ -34,6 +34,7 @@ public:
 	void SetInstance(bool bInst = true);
 	void SetLayer(class CLayer* pLayer);
 	class CRenderer* GetRenderer()	const;
+	class CTransform* GetTransform()	const;
 
 public:
 	void SetTexture(REGISTER_TYPE eType, const std::string& strTag, int iRegister = 0, int iCount = 1,
@@ -89,6 +90,8 @@ public:
 
 public:
 	virtual bool Init();
+	virtual bool Init(const char* pFileName, const std::string& strPathKey = DATA_PATH);
+	virtual bool Init(FILE* pFile);
 	virtual void Start();
 	virtual void Update(float fTime);
 	virtual void PostUpdate(float fTime);
@@ -108,6 +111,8 @@ public:
 	void SetInheritRotY(bool bInherit);
 	void SetInheritRotZ(bool bInherit);
 	void SetInheritPos(bool bIn);
+	void SetUpdateScale(bool bScale);
+	void SetUpdateRot(bool bRot);
 	void InheritScale();
 	void InheritRot();
 	void InheritPos();
@@ -178,6 +183,12 @@ public:
 	void SetPivot(const Vector3& v);
 	void SetPivot(float x, float y, float z);
 	void SetMeshSize(const Vector3& v);
+	void Slerp(const Vector4& p, const Vector4& q, float s);
+	void Slerp(const Vector4& q, float s);
+	void SetQuaternionRot(const Vector4& vAxis, float fAngle);
+	void AddQuaternionRot(const Vector4& vAxis, float fAngle);
+	void SetQuaternionRotNorm(const Vector4& vAxis, float fAngle);
+	void AddQuaternionRotNorm(const Vector4& vAxis, float fAngle);
 
 public:
 	void GetAllComponentName(std::vector<Hierarchy>& vecHierarchy);

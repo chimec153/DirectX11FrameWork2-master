@@ -158,8 +158,17 @@ void CTexture::SetTexture(int iRegister, int iType, int idx)
 		CONTEXT->CSSetShaderResources(iRegister, 1, &m_vecTextureInfo[idx]->pSRV);
 }
 
-ID3D11ShaderResourceView* CTexture::CreateRandomTexture1DSRV()
+void CTexture::CreateRandomTexture1DSRV()
 {
+	SetName("Noise");
+
+	PTextureInfo pInfo = new TextureInfo;
+
+	m_vecTextureInfo.push_back(pInfo);
+
+	pInfo->iWidth = 1024;
+	pInfo->iHeight = 1;
+
 	Vector4 vRand[1024];
 
 	for (int i = 0; i < 1024; ++i)
@@ -187,24 +196,22 @@ ID3D11ShaderResourceView* CTexture::CreateRandomTexture1DSRV()
 	ID3D11Texture1D* pTex = nullptr;
 
 	if (FAILED(DEVICE->CreateTexture1D(&tDesc, &tData, &pTex)))
-		return nullptr;
+		return;
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC tViewDesc = {};
 	tViewDesc.Format = tDesc.Format;
 	tViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE1D;
 	tViewDesc.Texture1D.MipLevels = tDesc.MipLevels;
 
-	ID3D11ShaderResourceView* pSRV = nullptr;
-
-	if (FAILED(DEVICE->CreateShaderResourceView(pTex, &tViewDesc, &pSRV)))
+	if (FAILED(DEVICE->CreateShaderResourceView(pTex, &tViewDesc, &pInfo->pSRV)))
 	{
 		SAFE_RELEASE(pTex);
-		return nullptr;
+		return;
 	}
 
 	SAFE_RELEASE(pTex);
 
-	return pSRV;
+	return;
 }
 
 bool CTexture::CreateResource(int idx)

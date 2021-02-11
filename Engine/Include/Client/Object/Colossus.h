@@ -1,15 +1,5 @@
 #pragma once
-#include "Object\Obj.h"
-
-enum class TITAN_STATE
-{
-	SLEEP,
-	IDLE,
-	ATTACK,
-	STOP,
-	DIE,
-	END
-};
+#include "SoulMonster.h"
 
 enum class ATTACK_STAGE
 {
@@ -21,7 +11,7 @@ enum class ATTACK_STAGE
 };
 
 class CColossus :
-	public CObj
+	public CSoulMonster
 {
 	friend class CScene;
 	friend class CLayer;
@@ -36,29 +26,30 @@ private:
 	class CSpriteComponent* m_pBody;
 	class CSpriteComponent* m_pLeftHand;
 	class CSpriteComponent* m_pRightHand;
-	class CSpriteComponent* m_pLeftShoulder;
-	class CSpriteComponent* m_pRightShoulder;
 	class CSpriteComponent* m_pLight;
 	class CSpriteComponent* m_pLeftHandShadow;
 	class CSpriteComponent* m_pRightHandShadow;
-	TITAN_STATE	m_eState;
 	bool		m_bRising;
 	bool		m_bLeft;
 	ATTACK_STAGE	m_eAttackStage;
 	float		m_fReadyTime;
 	float		m_fDownDist;
-	float		m_fLimitDist;
-	float		m_fHandSpeed;
+	static float		m_fLimitDist;
+	static float		m_fLimitDist2;
+	static float		m_fHandSpeed;
 	float		m_fInertiaTime;
-	float		m_fInertiaLimit;
-	float		m_fMoveSpeed;
+	static float		m_fInertiaLimit;
+	static float		m_fMoveSpeed;
+	class CParticle* m_pParticleLeft;
+	class CParticle* m_pParticleRight;
+	bool		m_bSleep;
+	Vector3		m_vTargetPos;
+	class CSound* m_pBGM;
+	class CSound* m_pBGM2;
+	static float		m_fAccel;
+	float			m_fSpeed;
 
 public:
-	const TITAN_STATE GetState()	const
-	{
-		return m_eState;
-	}
-
 	const ATTACK_STAGE GetStage()	const
 	{
 		return m_eAttackStage;
@@ -85,11 +76,15 @@ public:
 	void ColLast(class CCollider* pSrc, class CCollider* pDst, float fTime);
 
 public:
-	void SetState(TITAN_STATE eState);
+	virtual void SetState(State eState);
 
 public:
 	void Cry(float fTime);
 	void ReturnCam(float fTime);
 	void StopShaking(float fTime);
+
+public:
+	void Cheat(float, float);
+	void SpawnWindow();
 };
 

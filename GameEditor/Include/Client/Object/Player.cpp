@@ -31,10 +31,28 @@
 #include "Types.h"
 #include "Device.h"
 #include "Colossus.h"
+#include "Component/Particle.h"
+#include "Eyecube.h"
+#include "BrainFreeze.h"
+#include "../GameMode/BrainMode.h"
+#include "Resource/Mesh.h"
+#include "Soul.h"
+#include "Component/Line.h"
+#include "../../State.h"
+#include "../GameMode/EyeCubeMode.h"
+#include "../GameMode/EndGameMode.h"
+#include "../GameMode/StartGameMode.h"
+#include "../BossManager.h"
+
+float CPlayer::m_fPlayTime = 0.f;
+int	CPlayer::m_iDeath = 0;
+bool CPlayer::m_bMenu = false;
+int CPlayer::m_iMenu = 0;
+const float CPlayer::m_fWalkSpeed = 80.f;
 
 CPlayer::CPlayer() :
 	m_pMesh(nullptr),
-	m_fSpeed(100.f),
+	m_fSpeed(m_fWalkSpeed),
 	m_bIdleEnable(true),
 	m_fScaleX(0.f),
 	m_fScaleY(0.f),
@@ -61,8 +79,28 @@ CPlayer::CPlayer() :
 	m_pAirMap(nullptr),
 	m_bWalkIn(false),
 	m_fWalkTime(1.5f),
-	m_pFade(nullptr),
-	m_fDieDelay(2.5f)
+	//m_pFade(nullptr),
+	m_fDieDelay(2.5f),
+	m_bBurn(false),
+	m_pShadowDown(nullptr),
+	m_fFlyDist(0.f),
+	m_bFly(false),
+	m_iSouls(0),
+	m_fLightTime(0.f),
+	m_fLightTimeLimit(0.5f),
+	m_iLights(0),
+	m_fWhiteTime(0.f),
+	m_fWhiteTimeLimit(3.f),
+	m_pGrass(nullptr),
+	m_eMatType(MAT_TYPE::END),
+	m_bReady(true),
+	m_cCol(0),
+	m_pTileDust(nullptr),
+	m_pWave(nullptr),
+	m_pSplash(nullptr),
+	m_pBlood(nullptr),
+	m_bImpact(false),
+	m_pBGM(nullptr)
 {
 	m_iObjClassType = (int)OBJ_CLASS_TYPE::OCT_PLAYER;
 }
@@ -86,7 +124,14 @@ CPlayer::~CPlayer()
 	SAFE_RELEASE(m_pSnd);
 	SAFE_RELEASE(m_pMtrlMap);
 	SAFE_RELEASE(m_pAirMap);
-	SAFE_RELEASE(m_pFade);
+	//SAFE_RELEASE(m_pFade);
+	SAFE_RELEASE(m_pShadowDown);
+	SAFE_RELEASE(m_pGrass);
+	SAFE_RELEASE(m_pTileDust);
+	SAFE_RELEASE(m_pWave);
+	SAFE_RELEASE(m_pSplash);
+	SAFE_RELEASE(m_pBlood);
+	SAFE_RELEASE(m_pBGM);
 }
 
 void CPlayer::SetMeshComponent(CSpriteComponent* pMesh)
@@ -103,7 +148,7 @@ void CPlayer::Notify(const std::string& strTag)
 {
 	if (strTag == "Shot")
 	{
-		Fire1(1.f, 0.f);
+		//Fire1(1.f, 0.f);
 	}
 
 	else if (strTag == "Water")
@@ -116,9 +161,112 @@ void CPlayer::Charge()
 	m_pArrow->Enable(true);
 	m_bIdleEnable = true;
 	m_bCharge = true;
+	m_bReady = false;
 #ifdef _DEBUG
 	OutputDebugStringA("Charge");
 #endif
+
+	m_pSnd->SetSound("Pickuparrow");
+	m_pSnd->SetVol(1.f);
+	m_pSnd->Play(0.f);
+
+	m_pSnd->SetSound("arrow_retrieval");
+
+	m_pSnd->Stop();
+}
+
+void CPlayer::SetFly(bool bFly)
+{
+	m_bFly = bFly;
+
+	CSceneComponent* pCom = FindComByType<CParticle>();
+
+	if (!pCom)
+	{
+		CParticle* pDust = CreateComponent<CParticle>("Dust", m_pScene->FindLayer("Ground"));
+
+		pDust->AddParticle("Dust");
+		pDust->AddParticle("DustShare");
+		pDust->SetUVStart(64.f, 96.f);
+		pDust->SetUVEnd(96.f, 128.f);
+		pDust->SetUVSize(256.f, 256.f);
+		pDust->SetWorldPos(GetWorldPos());
+		pDust->AddRenderState("DepthNoWrite");
+		pDust->SetSpawnLimit(0.01f);
+		pDust->SetInheritScale(false);
+		pDust->SetRelativeScale(1.f, 1.f, 1.f);
+
+		pDust->SetInheritPos(false);
+
+		CMaterial* pMtrl = pDust->GetMaterial();
+
+		pMtrl->SetTexture(REGISTER_TYPE::RT_DIF, "Effect", 0, 1,
+			(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY | (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
+
+		SAFE_RELEASE(pMtrl);
+
+		m_pMesh->AddChild(pDust);
+
+		SAFE_RELEASE(pDust);
+	}
+
+	else
+	{
+		pCom->Release();
+	}
+
+	ChangeSequenceAll("Turn");
+	SetDefaultClipAll("Turn");
+
+	m_pShadow->Enable(false);
+
+	m_pMesh->DeleteRenderState("Character");
+	m_pMesh->AddRenderState("ForeGround");
+}
+
+void CPlayer::AddSoul()
+{
+	if (++m_iSouls >= 6)
+	{
+		CMaterial* pMtrl  =m_pMesh->GetMaterial();
+
+		pMtrl->SetAmbientColor(0.f, 0.f, 0.f, 0.f);
+
+		SAFE_RELEASE(pMtrl);
+
+		m_pBGM->SetSound("LightDrumLoop");
+		m_pBGM->Stop();
+
+		m_pBGM->SetSoundAndPlay("HeavyDrumLoop");
+	}
+}
+
+CSpriteComponent* CPlayer::GetMesh() const
+{
+	if (m_pMesh)
+		m_pMesh->AddRef();
+
+	return m_pMesh;
+}
+
+void CPlayer::SetBow(CBow* pObj)
+{
+	SAFE_RELEASE(m_pBow);
+
+	m_pBow = pObj;
+
+	if (m_pBow)
+		m_pBow->AddRef();
+}
+
+void CPlayer::SetArrow(CArrow* pObj)
+{
+	SAFE_RELEASE(m_pArrow);
+
+	m_pArrow = pObj;
+
+	if (m_pArrow)
+		m_pArrow->AddRef();
 }
 
 bool CPlayer::Init()
@@ -140,8 +288,9 @@ bool CPlayer::Init()
 
 	m_pMesh->AddRenderState("Character");
 	m_pMesh->AddRenderState("AlphaBlend");
+	m_pMesh->AddRenderState("NoCullBack");
 
-	m_pShadow = CreateComponent<CSpriteComponent>("Shadow", m_pLayer);
+	m_pShadow = CreateComponent<CSpriteComponent>("Shadow", m_pScene->FindLayer("Speacial"));
 
 	CMaterial* pMat = m_pMesh->GetMaterial();
 
@@ -158,6 +307,7 @@ bool CPlayer::Init()
 
 	m_pShadow->AddRenderState("Silhouette");
 	m_pShadow->AddRenderState("AlphaBlend");
+	m_pShadow->AddRenderState("NoCullBack");
 	m_pShadow->SetInheritScale(false);
 	m_pShadow->SetRelativeScale(16.f, 16.f, 1.f);
 	m_pShadow->SetPivot(0.5f, 0.5f, 0.f);
@@ -197,6 +347,10 @@ bool CPlayer::Init()
 	m_pShadow->CreateSprite("DieR",	"ProDieR", LOOP_OPTION::LOOP);
 	m_pShadow->CreateSprite("DieRD",	"ProDieRD", LOOP_OPTION::LOOP);
 	m_pShadow->CreateSprite("DieD",	"ProDieD", LOOP_OPTION::LOOP);
+	m_pShadow->CreateSprite("Turn", "ProTurn", LOOP_OPTION::LOOP);
+	m_pShadow->CreateSprite("TurnIdle", "ProTurnIdle", LOOP_OPTION::LOOP);
+	m_pShadow->CreateSprite("Randing", "ProRanding", LOOP_OPTION::ONCE_RETURN);
+	m_pShadow->CreateSprite("RandingIdle", "ProRandingIdle", LOOP_OPTION::LOOP);
 	
 	m_pMesh->AddChild(m_pShadow);
 
@@ -234,7 +388,11 @@ bool CPlayer::Init()
 	m_pMesh->CreateSprite("DieRU",	"ProDieRU", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("DieR",	"ProDieR", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("DieRD",	"ProDieRD", LOOP_OPTION::LOOP);
-	m_pMesh->CreateSprite("DieD",	"ProDieD", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("DieD", "ProDieD", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("Turn", "ProTurn", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("TurnIdle", "ProTurnIdle", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("Randing", "ProRanding", LOOP_OPTION::ONCE_RETURN);
+	m_pMesh->CreateSprite("RandingIdle", "ProRandingIdle", LOOP_OPTION::LOOP);
 
 	m_pMesh->AddNotify("SwimU", "Water", 2);
 	m_pMesh->AddNotify("SwimD", "Water", 2);
@@ -248,12 +406,6 @@ bool CPlayer::Init()
 	m_pMesh->AddNotify("IdleRU", "Water", 0.5f);
 	m_pMesh->AddNotify("IdleRD", "Water", 0.5f);
 
-	m_pMesh->AddNotify("WalkU", "Water", 2);
-	m_pMesh->AddNotify("WalkD", "Water", 2);
-	m_pMesh->AddNotify("WalkR", "Water", 2);
-	m_pMesh->AddNotify("WalkRU", "Water", 2);
-	m_pMesh->AddNotify("WalkRD", "Water", 2);
-
 	m_pMesh->AddNotify("DieU",	"Die", 0.5f);
 	m_pMesh->AddNotify("DieD",	"Die", 0.5f);
 	m_pMesh->AddNotify("DieR",	"Die", 0.5f);
@@ -265,12 +417,6 @@ bool CPlayer::Init()
 	m_pMesh->AddCallBack("SwimR", "Water", this, &CPlayer::Water);
 	m_pMesh->AddCallBack("SwimRD", "Water", this, &CPlayer::Water);
 	m_pMesh->AddCallBack("SwimD", "Water", this, &CPlayer::Water);
-
-	m_pMesh->AddCallBack("WalkU", "Water", this, &CPlayer::Water);
-	m_pMesh->AddCallBack("WalkRU", "Water", this, &CPlayer::Water);
-	m_pMesh->AddCallBack("WalkR", "Water", this, &CPlayer::Water);
-	m_pMesh->AddCallBack("WalkRD", "Water", this, &CPlayer::Water);
-	m_pMesh->AddCallBack("WalkD", "Water", this, &CPlayer::Water);
 
 	m_pMesh->AddCallBack("IdleU", "Water", this, &CPlayer::Water);
 	m_pMesh->AddCallBack("IdleRU", "Water", this, &CPlayer::Water);
@@ -290,28 +436,66 @@ bool CPlayer::Init()
 	m_pMesh->SetEndFunc("RollRD", this, &CPlayer::RollEnd);
 	m_pMesh->SetEndFunc("RollD", this, &CPlayer::RollEnd);
 
+	m_pMesh->SetEndFunc("SwimU", this, &CPlayer::RollEnd);
+	m_pMesh->SetEndFunc("SwimRU", this, &CPlayer::RollEnd);
+	m_pMesh->SetEndFunc("SwimR", this, &CPlayer::RollEnd);
+	m_pMesh->SetEndFunc("SwimRD", this, &CPlayer::RollEnd);
+	m_pMesh->SetEndFunc("SwimD", this, &CPlayer::RollEnd);
+
+	const char* strDir[5] =
+	{
+		"WalkU",
+		"WalkRU",
+		"WalkR",
+		"WalkRD",
+		"WalkD"
+	};
+
+	for (int i = 0; i < 5; ++i)
+	{
+		m_pMesh->AddNotify(strDir[i], "Water", 2);
+		m_pMesh->AddCallBack(strDir[i], "Water", this, &CPlayer::Water);
+
+		for (int j = 0; j < 8; ++j)
+		{
+			char strNum[32] = {};
+
+			sprintf_s(strNum, "Step%d", j + 1);
+
+			m_pMesh->AddNotify(strDir[i], strNum, j+1);
+			m_pMesh->AddCallBack(strDir[i], strNum, this, &CPlayer::Step);
+		}
+	}
+
+	m_pMesh->AddCallBack("WalkU", "Step1", this, &CPlayer::Die);
+	m_pMesh->AddCallBack("DieD", "Die", this, &CPlayer::Die);
+
 	m_pMesh->SetRelativeScale(16.f, 16.f, 1.f);
 	m_pMesh->SetPivot(0.5f, 0.5f, 0.f);
 
 	SetRootComponent(m_pMesh);
 
-	m_pInput->SetAxisFunc("MoveV", this, &CPlayer::MoveV);
-	m_pInput->SetAxisFunc("MoveH", this, &CPlayer::MoveH);
-	m_pInput->SetAxisFunc("Z", this, &CPlayer::Fire1);
+	GET_SINGLE(CInput)->AddAxisKey("Up&Down", DIK_UP, 1.f);
+	GET_SINGLE(CInput)->AddAxisKey("Up&Down", DIK_DOWN, -1.f);
+	GET_SINGLE(CInput)->AddAxisKey("Left&Right", DIK_LEFT, -1.f);
+	GET_SINGLE(CInput)->AddAxisKey("Left&Right", DIK_RIGHT, 1.f);
+
+	m_pInput->SetAxisFunc("Up&Down", this, &CPlayer::MoveV);
+	m_pInput->SetAxisFunc("Left&Right", this, &CPlayer::MoveH);
+	m_pInput->SetActionFunc("LeftArrow", KT_DOWN, this, &CPlayer::MenuLeft);
+	m_pInput->SetActionFunc("RightArrow", KT_DOWN, this, &CPlayer::MenuRight);
+	m_pInput->SetActionFunc("C", KT_DOWN, this, &CPlayer::CloseUp);
 	m_pInput->SetActionFunc("C", KT_PRESS, this, &CPlayer::ReturnArrow);
-	m_pInput->SetActionFunc("Shift", KT_DOWN, this, &CPlayer::ShiftDown);
+	m_pInput->SetActionFunc("C", KT_UP, this, &CPlayer::CloseUpEnd);
+	m_pInput->SetActionFunc("X", KT_DOWN, this, &CPlayer::ShiftDown);
 	m_pInput->SetActionFunc("X", KT_UP, this, &CPlayer::ShiftUp);
-	m_pInput->SetActionFunc("O", KT_DOWN, this, &CPlayer::Option);
+	m_pInput->SetActionFunc("ESC", KT_DOWN, this, &CPlayer::Option);
 	m_pInput->SetActionFunc("TAB", KT_DOWN, this, &CPlayer::TileMatToggle);
 	m_pInput->SetActionFunc("F1", KT_DOWN, this, &CPlayer::Stage1);
-	m_pInput->SetActionFunc("C", KT_DOWN, this, &CPlayer::CloseUp);
-	m_pInput->SetActionFunc("C", KT_UP, this, &CPlayer::CloseUpEnd);
+	m_pInput->SetActionFunc("F2", KT_DOWN, this, &CPlayer::Stage2);
+	m_pInput->SetActionFunc("F3", KT_DOWN, this, &CPlayer::Stage3);
 
-	CLayer* pLayer = GET_SINGLE(CSceneManager)->GetScene()->FindLayer("Default");
-
-	m_pBow = m_pScene->CreateObject<CBow>("Bow", pLayer);
-
-	m_pArrow = m_pScene->CreateObject<CArrow>("Arrow", pLayer);
+	CLayer* pLayer = GET_SINGLE(CSceneManager)->GetNextScene()->FindLayer("Default");
 
 	m_pCoord = CreateComponent<CUIFont>("Coord", m_pLayer);
 
@@ -322,6 +506,10 @@ bool CPlayer::Init()
 	m_pSnd = CreateComponent<CSound>("Sound");
 
 	m_pSnd->SetSound("arrow_retrieval");
+	m_pSnd->SetSceneComType(SCENE_COMPONENT_TYPE::SCT_UI);
+	m_pSnd->SetMaxVol(100.f);
+	m_pSnd->SetMinVol(100.f);
+	m_pSnd->SetVol(100.f);
 
 	m_pMesh->AddChild(m_pSnd);
 
@@ -335,23 +523,170 @@ bool CPlayer::Init()
 
 	CLayer* pUI = m_pScene->FindLayer("UI");
 
-	m_pFade = CreateComponent<CMesh2DComponent>("Fade", pUI);
+	//m_pFade = CreateComponent<CMesh2DComponent>("Fade", pUI);
 
 	Resolution tRS = RESOLUTION;
 
-	m_pFade->SetWorldScale(tRS.iWidth, tRS.iHeight, 0.f);
-	m_pFade->SetPivot(0.5f, 0.5f, 0.f);
+	//m_pFade->SetWorldScale((float)tRS.iWidth, (float)tRS.iHeight, 0.f);
+	//m_pFade->SetPivot(0.5f, 0.5f, 0.f);
 
-	m_pFade->SetInheritScale(false);	
-	m_pFade->AddRenderState("AlphaBlend");
+	//m_pFade->SetInheritScale(false);	
+	//m_pFade->AddRenderState("AlphaBlend");
 
-	m_pMesh->AddChild(m_pFade);
+	//m_pMesh->AddChild(m_pFade);
+
+	m_pShadowDown = CreateComponent<CSpriteComponent>("ShadowDown", m_pScene->FindLayer("Ground"));
+
+	m_pShadowDown->SetWorldScale(16.f, 16.f, 0.f);
+	m_pShadowDown->SetPivot(0.5f, 0.5f, 0.f);
+	m_pShadowDown->SetInheritScale(false);
+	m_pShadowDown->CreateSprite("Idle", "ArrowShadow", LOOP_OPTION::LOOP);
+	m_pShadowDown->SetRelativePos(0.f, -8.f, 0.f);
+	m_pShadowDown->AddRenderState("AlphaBlend");
+	m_pShadowDown->AddRenderState("DepthNoWrite");
+	m_pShadowDown->AddRenderState("NoCullBack");
+
+	CMaterial* pShadowDownMtrl = m_pShadowDown->GetMaterial();
+
+	pShadowDownMtrl->SetDiffuseColor(1.f, 1.f, 1.f, 0.5f);
+
+	SAFE_RELEASE(pShadowDownMtrl);
+
+	m_pMesh->AddChild(m_pShadowDown);
+
+	m_pGrass = CreateComponent<CParticle>("GrassParticle", m_pLayer);
+
+	m_pGrass->SetWorldScale(1.f, 1.f, 1.f);
+	m_pGrass->AddParticle("Grass");
+	m_pGrass->AddParticle("GrassShare");
+	m_pGrass->SetUVStart(64.f, 16.f);
+	m_pGrass->SetUVEnd(80.f, 32.f);
+	m_pGrass->SetUVSize(256.f, 256.f);
+	m_pGrass->SetSpawnLimit(0.25f);
+	m_pGrass->SetInheritScale(false);
+	m_pGrass->AddRenderState("DepthNoWrite");
+	m_pGrass->SetInheritRotZ(false);
+	m_pGrass->Stop();
+
+	CMaterial* pGrassMtrl = m_pGrass->GetMaterial();
+
+	pGrassMtrl->SetTexture(REGISTER_TYPE::RT_DIF, "Effect", 0, 1,
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY | (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
+
+	SAFE_RELEASE(pGrassMtrl);
+
+	m_pShadowDown->AddChild(m_pGrass);
+
+	m_pTileDust = CreateComponent<CParticle>("TileDustParticle", m_pLayer);
+
+	m_pTileDust->SetWorldScale(1.f, 1.f, 1.f);
+	m_pTileDust->AddParticle("TileDust");
+	m_pTileDust->AddParticle("TileDustShare");
+	m_pTileDust->SetUVStart(144.f, 0.f);
+	m_pTileDust->SetUVEnd(160.f, 16.f);
+	m_pTileDust->SetUVSize(256.f, 256.f);
+	m_pTileDust->SetSpawnLimit(0.25f);
+	m_pTileDust->SetInheritScale(false);
+	m_pTileDust->AddRenderState("DepthNoWrite");
+	m_pTileDust->SetInheritRotZ(false);
+	m_pTileDust->Stop();
+
+	CMaterial* pTileMtrl = m_pTileDust->GetMaterial();
+
+	pTileMtrl->SetTexture(REGISTER_TYPE::RT_DIF, "Effect", 0, 1,
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY | (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
+
+	SAFE_RELEASE(pTileMtrl);
+
+	m_pShadowDown->AddChild(m_pTileDust);
+
+	m_pWave = CreateComponent<CParticle>("WaveParticle", m_pLayer);
+
+	m_pWave->SetWorldScale(1.f, 1.f, 1.f);
+	m_pWave->AddParticle("Water");
+	m_pWave->AddParticle("WaterShare");
+	m_pWave->SetUVStart(352.f, 0.f);
+	m_pWave->SetUVEnd(384.f, 32.f);
+	m_pWave->SetUVSize(512.f, 512.f);
+	m_pWave->SetSpawnLimit(0.25f);
+	m_pWave->SetInheritScale(false);
+	m_pWave->AddRenderState("DepthNoWrite");
+	m_pWave->SetInheritRotZ(false);
+	m_pWave->Stop();
+
+	CMaterial* pWaveMtrl = m_pWave->GetMaterial();
+
+	pWaveMtrl->SetTexture(REGISTER_TYPE::RT_DIF, "Pro", 0, 1,
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY | (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
+
+	SAFE_RELEASE(pWaveMtrl);
+
+	m_pMesh->AddChild(m_pWave);
+
+	m_pSplash = CreateComponent<CParticle>("SplashParticle", m_pLayer);
+
+	m_pSplash->SetWorldScale(1.f, 1.f, 1.f);
+	m_pSplash->AddParticle("WaterSplash");
+	m_pSplash->AddParticle("WaterSplashShare");
+	m_pSplash->SetUVStart(0.f, 48.f);
+	m_pSplash->SetUVEnd(16.f, 64.f);
+	m_pSplash->SetUVSize(256.f, 256.f);
+	m_pSplash->SetSpawnLimit(0.f);
+	m_pSplash->SetInheritScale(false);
+	m_pSplash->AddRenderState("DepthNoWrite");
+	m_pSplash->SetInheritRotZ(false);
+	m_pSplash->Stop();
+
+	CMaterial* pSplashMtrl = m_pSplash->GetMaterial();
+
+	pSplashMtrl->SetTexture(REGISTER_TYPE::RT_DIF, "Effect", 0, 1,
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY | (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
+
+	SAFE_RELEASE(pSplashMtrl);
+
+	m_pMesh->AddChild(m_pSplash);
+
+	m_pBlood = CreateComponent<CParticle>("BloodParticle", m_pScene->FindLayer("Temp"));
+
+	m_pBlood->SetWorldScale(1.f, 1.f, 1.f);
+	m_pBlood->AddParticle("Blood");
+	m_pBlood->AddParticle("BloodShare");
+	m_pBlood->SetUVStart(0.f, 48.f);
+	m_pBlood->SetUVEnd(16.f, 64.f);
+	m_pBlood->SetUVSize(256.f, 256.f);
+	m_pBlood->SetSpawnLimit(0.f);
+	m_pBlood->SetInheritScale(false);
+	m_pBlood->AddRenderState("DepthNoWrite");
+	m_pBlood->SetInheritRotZ(false);
+	m_pBlood->Stop();
+
+	CMaterial* pBloodMtrl = m_pBlood->GetMaterial();
+
+	pBloodMtrl->SetTexture(REGISTER_TYPE::RT_DIF, "Effect", 0, 1,
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY | (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
+
+	SAFE_RELEASE(pBloodMtrl);
+
+	m_pMesh->AddChild(m_pBlood);
+
+	m_pBGM = CreateComponent<CSound>("BGM", m_pLayer);
+
+	m_pBGM->SetSceneComType(SCENE_COMPONENT_TYPE::SCT_UI);
+
+	m_pMesh->AddChild(m_pBGM);
 
 	return true;
 }
 
 void CPlayer::Start()
 {
+	CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
+
+	pCam->SetWorldPos(m_pMesh->GetWorldPos());
+
+	pCam->SetTarget(this);
+
+	SAFE_RELEASE(pCam);
 
 	CLayer* pMtrlLayer = m_pScene->FindLayer("1_MAT");
 
@@ -376,6 +711,8 @@ void CPlayer::Start()
 		SAFE_RELEASE(m_pAirMap);
 		m_pAirMap = pAirLayer->GetTileMap();
 	}
+
+	m_bStart = true;
 }
 
 void CPlayer::Input(float fTime)
@@ -385,6 +722,8 @@ void CPlayer::Input(float fTime)
 void CPlayer::Update(float fTime)
 {
 	CObj::Update(fTime);
+
+	m_fPlayTime += fTime;
 
 #ifdef _DEBUG
 
@@ -413,7 +752,7 @@ void CPlayer::Update(float fTime)
 	TCHAR strPos[32] = {};
 
 	Vector3 vPos = GetWorldPos();
-
+	SetWorldPos(vPos.x, vPos.y, -300.f);
 	swprintf_s(strPos, TEXT("X: %.5f, Y: %.5f"), vPos.x, vPos.y);
 
 	m_pCoord->SetText(strPos);
@@ -433,6 +772,8 @@ void CPlayer::Update(float fTime)
 		if (m_bRolling)
 		{
 			m_bRolling = false;
+			m_pGrass->SetSpawnLimit(0.25f);
+			m_pTileDust->SetSpawnLimit(0.25f);
 		}
 
 		m_fWalkTime += fTime;
@@ -441,7 +782,7 @@ void CPlayer::Update(float fTime)
 		{
 			CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
 
-			pCam->SetZoom(false, -150.f);
+			pCam->SetZoom(false);
 
 			SAFE_RELEASE(pCam);
 			ChangeStage(m_strMap.c_str());
@@ -456,23 +797,11 @@ void CPlayer::Update(float fTime)
 		Vector3 vDir = pMode->GetDoorDir();
 
 		m_pMesh->AddWorldPos(-vDir * 20.f * fTime);
-
-		CMaterial* pMtrl = m_pFade->GetMaterial();
-
-		pMtrl->SetDiffuseColor(1.f, 1.f, 1.f, m_fWalkTime / 1.5f);
-
-		SAFE_RELEASE(pMtrl);
 	}
 
 	else if(m_fWalkTime > 0.f)
 	{
 		m_fWalkTime -= fTime;
-
-		CMaterial* pMtrl = m_pFade->GetMaterial();
-
-		pMtrl->SetDiffuseColor(1.f, 1.f, 1.f, m_fWalkTime / 1.5f);
-
-		SAFE_RELEASE(pMtrl);
 
 		if (m_fWalkTime < 0.f)
 		{
@@ -651,24 +980,12 @@ void CPlayer::Update(float fTime)
 	else if(!m_bBack)// 구르는 상태
 	{
 		m_fRollTime += fTime;
-//
-//		if (m_fRollTime >= 1.f)
-//		{
-//#ifdef _DEBUG
-//			OutputDebugStringA("Stop Rolling");
-//#endif
-//
-//			m_fRollTime = 0.f;
-//			m_bRolling = false;
-//			m_bIdleEnable = true;
-//			m_fSpeed = m_fPrevSpeed;
-//		}
 
-		float fSpeed = 200.f;
+		float fSpeed = m_fWalkSpeed * 1.5f;
 
 		if (m_eState == STATE::SWIM)
 		{
-			fSpeed = 100.f;
+			fSpeed = m_fWalkSpeed;
 		}
 
 		Vector3 vPrevPos = m_pMesh->GetWorldPos();
@@ -679,35 +996,38 @@ void CPlayer::Update(float fTime)
 				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime);
 				break;
 			case DIR_8::RU:
-				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime);
-				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime);
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime * 0.7071f);
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime * 0.7071f);
 				break;
 			case DIR_8::R:
 				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime);
 				break;
 			case DIR_8::RD:
-				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime);
-				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime * -1.f);
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime * 0.7071f);
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime * -0.7071f);
 				break;
 			case DIR_8::D:
-				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime * -1.f);
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime * -0.7071f);
 				break;
 			case DIR_8::LD:
-				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime);
-				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime * -1.f);
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime * 0.7071f);
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime * -0.7071f);
 				break;
 			case DIR_8::L:
 				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime);
 				break;
 			case DIR_8::LU:
-				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime);
-				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime);
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime * 0.7071f);
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime * 0.7071f);
 				break;
 			}
 
-			char cCol = TileMapCol(m_pTileMap);
+			if (m_cCol == 0)
+			{
+				m_cCol = TileMapCol(m_pTileMap);
+			}
 
-			if (cCol != 0)
+			if (m_cCol != 0)
 			{
 				m_pMesh->SetWorldPos(vPrevPos);
 				m_bBack = true;
@@ -723,9 +1043,9 @@ void CPlayer::Update(float fTime)
 
 			else
 			{
-				cCol = TileMapCol(m_pAirMap);
+				m_cCol = TileMapCol(m_pAirMap);
 
-				if (cCol != 0)
+				if (m_cCol != 0)
 				{
 					m_pMesh->SetWorldPos(vPrevPos);
 					m_bBack = true;
@@ -741,13 +1061,13 @@ void CPlayer::Update(float fTime)
 
 				else
 				{
-					cCol = TileMapCol(m_pMtrlMap);
+					m_cCol = TileMapCol(m_pMtrlMap);
 
-					if ((cCol == '4' &&
+					if ((m_cCol == '4' &&
 						(m_eDir == DIR_8::LU ||
 							m_eDir == DIR_8::RU ||
 							m_eDir == DIR_8::U)) ||
-						(cCol == '1' &&
+						(m_cCol == '1' &&
 							(m_eDir == DIR_8::R ||
 								m_eDir == DIR_8::RU ||
 								m_eDir == DIR_8::U)))
@@ -765,6 +1085,8 @@ void CPlayer::Update(float fTime)
 					}
 				}
 			}
+
+			m_cCol = 0;
 	}
 
 	if (m_bBack)	// 넉백
@@ -779,6 +1101,9 @@ void CPlayer::Update(float fTime)
 
 			m_bRolling = false;
 
+			m_pGrass->SetSpawnLimit(0.25f);
+			m_pTileDust->SetSpawnLimit(0.25f);
+
 #ifdef _DEBUG
 			OutputDebugStringA("Stop Rolling");
 #endif
@@ -786,7 +1111,7 @@ void CPlayer::Update(float fTime)
 			m_bIdleEnable = true;
 		}
 
-		float fSpeed = 40.f;
+		float fSpeed = m_fWalkSpeed * 2.f / 5.f;
 
 		Vector3 vPrevPos = m_pMesh->GetWorldPos();
 
@@ -796,29 +1121,29 @@ void CPlayer::Update(float fTime)
 			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime);
 			break;
 		case DIR_8::RU:
-			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime);
-			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime);
+			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime * 0.7071f);
+			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime * 0.7071f);
 			break;
 		case DIR_8::R:
 			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime);
 			break;
 		case DIR_8::RD:
-			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime);
-			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime * -1.f);
+			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime * 0.7071f);
+			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime * -0.7071f);
 			break;
 		case DIR_8::D:
-			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime * -1.f);
+			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime * -0.7071f);
 			break;
 		case DIR_8::LD:
-			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime);
-			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime * -1.f);
+			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime * 0.7071f);
+			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime * -0.7071f);
 			break;
 		case DIR_8::L:
 			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime);
 			break;
 		case DIR_8::LU:
-			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime);
-			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime);
+			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * fSpeed * fTime* 0.7071f);
+			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * fSpeed * fTime* 0.7071f);
 			break;
 		}
 
@@ -838,6 +1163,201 @@ void CPlayer::Update(float fTime)
 	if (m_fRollTime >= 0.f)
 	{
 		m_fRollTime -= fTime;
+	}
+
+	if (m_bFly)
+	{
+		((CTileMode*)m_pScene->GetGameMode())->SetFadeColor(1.f, 1.f, 1.f);
+
+		m_fFlyDist += fTime * 8.f;
+
+		AddWorldPos(0.f, fTime * 8.f, 0.f);
+
+		if (m_fFlyDist >= 16.f)
+		{
+			static bool bCheck = false;
+
+			if (!bCheck)
+			{
+				m_pSnd->SetSoundAndPlay("Ascension");
+				m_pSnd->SetSoundAndPlay("IntroLayer2");
+				bCheck = true;
+			}
+		}
+
+		m_pShadowDown->SetRelativePos(0.f, -m_fFlyDist - 8.f, 0.f);
+
+		CSoul* pSoul = (CSoul*)m_pLayer->FindObj("Soul1");
+
+		float fScale = (0.5f - pSoul->GetScale()) * 2.f;
+
+		SAFE_RELEASE(pSoul);
+
+		if (m_iSouls < 6)
+		{
+			CMaterial* pMtrl = m_pMesh->GetMaterial();
+
+			pMtrl->SetAmbientColor(fScale, fScale, fScale, 0.f);
+
+			SAFE_RELEASE(pMtrl);
+		}
+
+		m_pMesh->SetPlayRate(fScale * 3.f + 1.f);
+	}
+
+	else if (m_fFlyDist > 0.f)
+	{
+		AddWorldPos(0.f, fTime * -24.f, 0.f);
+
+		m_pShadowDown->SetRelativePos(0.f, -m_fFlyDist - 8.f, 0.f);
+
+		m_fFlyDist -= fTime * 24.f;
+
+		if (m_fFlyDist <= 8.f)
+		{
+			static bool bCheck = false;
+
+			if (!bCheck)
+			{
+				ChangeSequenceAll("Randing");
+				SetDefaultClipAll("Randing");
+
+				m_pMesh->DeleteRenderState("ForeGround");
+				m_pMesh->AddRenderState("Character");
+				m_pShadow->Enable(true);
+
+				m_pBow->Enable(true);
+
+				bCheck = true;
+			}
+		}
+
+		else
+		{
+			ChangeSequenceAll("RandingIdle");
+		}
+	}
+
+	else if (m_fFlyDist < 0.f)
+	{
+		m_fFlyDist = 0.f;
+		ChangeSequenceAll("IdleD");
+		SetDefaultClipAll("IdleD");
+		m_bCharge = true;
+		((CTileMode*)m_pScene->GetGameMode())->Lock(false);
+	}
+
+	if (m_iSouls >= 6)
+	{
+		m_fLightTime += fTime;
+
+		if (m_fLightTime >= m_fLightTimeLimit)
+		{
+			m_fLightTime -= m_fLightTimeLimit;
+
+			m_iLights++;
+
+			CLine* pLine = CreateComponent<CLine>("Line", m_pScene->FindLayer("Speacial"));
+
+			pLine->SetAngle((float)(rand() % 360));
+			pLine->SetAngleSpeed((float)(120 * (1 - (rand() % 2) * 2)));
+			pLine->AddRenderState("DepthNoWrite");
+			pLine->AddRenderState("NoCullBack");
+			pLine->SetPivot(0.5f, 0.5f, 0.f);
+			pLine->SetWorldScale(400.f, 400.f, 0.f);
+			pLine->SetInheritScale(false);
+			pLine->Update(fTime);
+
+			CMaterial* pLineMtrl = pLine->GetMaterial();
+
+			pLineMtrl->SetDiffuseColor(1.f, 1.f, 1.f, 0.5f);
+
+			SAFE_RELEASE(pLineMtrl);
+
+			m_pMesh->AddChild(pLine);
+
+			SAFE_RELEASE(pLine);
+
+			((CTileMode*)m_pScene->GetGameMode())->ShakeCam(150.f + m_iLights * 20.f, 5.f + m_iLights /2.f, 0.1f);
+
+			if (m_iLights == 3)
+			{
+				m_fLightTimeLimit = 0.25f;
+			}
+			else if (m_iLights == 8)
+			{
+				m_fLightTimeLimit = 0.0625f;
+			}
+
+			else if(m_iLights == 12)
+			{
+				m_fLightTimeLimit = 0.03125;
+				((CTileMode*)m_pScene->GetGameMode())->ShakeCam(300.f, 10.f, 0.5f);
+
+				((CTileMode*)m_pScene->GetGameMode())->SetFadeColor(1.f, 1.f, 1.f);
+				((CTileMode*)m_pScene->GetGameMode())->SetFade(0.f, 1.f, 0.5f);
+			}
+		}
+
+		if (m_iLights >= 12)
+		{
+			m_fWhiteTime += fTime;
+
+			if (m_fWhiteTime >= m_fWhiteTimeLimit)
+			{
+				m_fWhiteTime = 0.f;
+
+				ChangeSequenceAll("RandingIdle");
+				SetDefaultClipAll("RandingIdle");
+
+				m_bFly = false;
+
+				((CTileMode*)m_pScene->GetGameMode())->SetFadeColor(1.f, 1.f, 1.f);
+				((CTileMode*)m_pScene->GetGameMode())->SetFade(1.f, 0.f, -0.5f);
+
+				CMaterial* pMtrl = m_pMesh->GetMaterial();
+
+				pMtrl->SetAmbientColor(0.f, 0.f, 0.f, 0.f);
+
+				SAFE_RELEASE(pMtrl);
+
+				CSceneComponent* pLine = FindComByType<CLine>();
+
+				while (pLine)
+				{
+					m_pMesh->DeleteChild(pLine);
+
+					pLine->Destroy();
+
+					SAFE_RELEASE(pLine);
+
+					pLine = FindComByType<CLine>();
+				}
+
+				m_iLights = 0;
+				m_iSouls = 0;
+
+				m_pBGM->SetSound("HeavyDrumLoop");
+				m_pBGM->Stop();
+
+				CSceneComponent* pDust = FindSceneComponent("Dust");
+
+				m_pMesh->DeleteChild(pDust);
+
+				if (pDust)
+				{
+					pDust->Destroy();
+				}
+
+				SAFE_RELEASE(pDust);
+			}
+		}
+
+		else
+		{
+			ChangeSequenceAll("TurnIdle");
+			SetDefaultClipAll("TurnIdle");
+		}
 	}
 }
 
@@ -864,14 +1384,50 @@ void CPlayer::PostUpdate(float fTime)
 
 	char cMtrl = TileMapCol(m_pMtrlMap);
 
-	char cWater = atoi("4116");
+	char strTile[(int)MAT_TYPE::END] =
+	{
+		(char)atoi("4098"),
+		(char)atoi("4099"),
+		(char)atoi("4100"),
+		(char)atoi("4101"),
+		(char)atoi("4102"),
+		(char)atoi("4103"),
+		(char)atoi("4104"),
+		(char)atoi("4105"),
+		(char)atoi("4106"),
+		(char)atoi("4107"),
+		(char)atoi("4108"),
+		(char)atoi("4109"),
+		(char)atoi("4110"),
+		(char)atoi("4111"),
+		(char)atoi("4112"),
+		(char)atoi("4116"),
+		(char)atoi("4118"),
+		(char)atoi("4119"),
+		(char)atoi("4125"),
+		(char)atoi("4145"),
+		(char)atoi("4146"),
+		(char)atoi("4147"),
+		(char)atoi("4148"),
+		(char)atoi("4149"),
+		(char)atoi("4140"),
+		(char)atoi("4141"),
+		(char)atoi("4142"),
+		(char)atoi("4153"),
+		(char)atoi("4158")
+	};
 
-	if (cMtrl == cWater)
+	if (cMtrl == strTile[(int)MAT_TYPE::WATER])
 	{
 		if (m_eState != STATE::SWIM)
 		{
 			Water(0.f);
+
+			m_pSplash->Resume();
+			m_pSplash->SetSpawnCount(16);
 		}
+
+		m_pShadowDown->Enable(false);
 		SetState(STATE::SWIM);
 	}
 
@@ -879,7 +1435,20 @@ void CPlayer::PostUpdate(float fTime)
 	{
 		Water(0.f);
 
+		m_pShadowDown->Enable(true);
 		SetState(STATE::IDLE);
+		m_fSpeed = m_fWalkSpeed;
+
+		m_pSplash->Stop();
+	}
+
+	for (int i = 0; i < (int)MAT_TYPE::END; ++i)
+	{
+		if (cMtrl == strTile[i])
+		{
+			m_eMatType = (MAT_TYPE)i;
+			break;
+		}
 	}
 }
 
@@ -891,8 +1460,40 @@ void CPlayer::Collision(float fTime)
 
 void CPlayer::PreRender(float fTime)
 {
-	m_fScaleX = 0.f;
-	m_fScaleY = 0.f;
+	m_pGrass->Stop();
+	m_pWave->Stop();
+	m_pTileDust->Stop();
+
+	if (m_fScaleX != 0.f ||
+		m_fScaleY != 0.f ||
+		m_bRolling)
+	{
+		switch (m_eMatType)
+		{
+		case MAT_TYPE::GRASS:
+			m_pGrass->Resume();
+			break;
+		case MAT_TYPE::WATER:
+			m_pWave->Resume();
+			break;
+		case MAT_TYPE::WATER_2:
+			m_pWave->Resume();
+			break;
+		case MAT_TYPE::TILE:
+			m_pTileDust->Resume();
+			break;
+		}
+
+		if (m_fScaleX != 0 &&
+			m_fScaleY != 0)
+		{
+			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * -m_fSpeed * fTime * m_fScaleY * 0.2921f);
+			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * -m_fSpeed * fTime * m_fScaleX * m_fScaleX * 0.2921f);
+		}
+
+		m_fScaleX = 0.f;
+		m_fScaleY = 0.f;
+	}
 
 	CObj::PreRender(fTime);
 }
@@ -939,13 +1540,16 @@ void CPlayer::Load(FILE* pFile)
 
 	m_pInput->SetAxisFunc("MoveV", this, &CPlayer::MoveV);
 	m_pInput->SetAxisFunc("MoveH", this, &CPlayer::MoveH);
-	m_pInput->SetAxisFunc("RotZ", this, &CPlayer::RotZ);
-	m_pInput->SetActionFunc("Fire1", KT_DOWN, this, &CPlayer::Fire1);
 }
 
 void CPlayer::MoveV(float fScale, float fTime)
 {
-	if (m_eState == STATE::DIE)
+	if (m_eState == STATE::DIE ||
+		m_bFly ||
+		m_fFlyDist !=0.f ||
+		m_bBack ||
+		m_bMenu ||
+		m_bRolling)
 	{
 		return;
 	}
@@ -970,7 +1574,12 @@ void CPlayer::MoveV(float fScale, float fTime)
 
 void CPlayer::MoveH(float fScale, float fTime)
 {
-	if (m_eState == STATE::DIE)
+	if (m_eState == STATE::DIE ||
+		m_bFly ||
+		m_fFlyDist != 0.f ||
+		m_bBack ||
+		m_bMenu ||
+		m_bRolling)
 	{
 		return;
 	}
@@ -999,14 +1608,10 @@ void CPlayer::MoveH(float fScale, float fTime)
 	}
 }
 
-void CPlayer::RotZ(float fScale, float fTime)
-{
-	m_pMesh->AddRelativeRotZ(180.f * fTime * fScale);
-}
-
 void CPlayer::Attack(float fPushTime, float fTime)
 {
-	if (m_bRolling)
+	if (m_bRolling ||
+		m_bMenu)
 	{
 		return;
 	}
@@ -1015,14 +1620,13 @@ void CPlayer::Attack(float fPushTime, float fTime)
 
 	if (m_bCharge)
 	{
-			CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
+		CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
 
-			pCam->SetZoom(true);
+		pCam->SetZoom(true);
 
-
-		if(!m_pBullet)
+		if (!m_pBullet)
 		{
-			m_pBullet = (CBullet*)m_pScene->CreateCloneObj("Bullet", "Bullet",m_pLayer, m_pScene->GetSceneType());
+			m_pBullet = (CBullet*)m_pScene->CreateCloneObj("Bullet", "Bullet", m_pLayer, m_pScene->GetSceneType());
 			m_pBullet->SetSpeed(0.f);
 		}
 
@@ -1032,8 +1636,8 @@ void CPlayer::Attack(float fPushTime, float fTime)
 
 		SAFE_RELEASE(pCam);
 
-		m_pBullet->SetRelativePos(GetWorldPos() + Vector3(fDist * -sinf(DirectX::XMConvertToRadians(m_fBowAngle)), 
-				fDist * cosf(DirectX::XMConvertToRadians(m_fBowAngle)), 0.f));
+		m_pBullet->SetRelativePos(GetWorldPos() + Vector3(fDist * -sinf(DirectX::XMConvertToRadians(m_fBowAngle)),
+			fDist * cosf(DirectX::XMConvertToRadians(m_fBowAngle)), 0.f));
 		m_pBullet->SetWorldRotZ(m_fBowAngle);
 
 		if (m_fBowAngle > 180.f)
@@ -1114,7 +1718,7 @@ void CPlayer::Attack(float fPushTime, float fTime)
 	}
 
 	else
-	{
+	{	
 		switch (m_eDir)
 		{
 		case DIR_8::U:
@@ -1163,7 +1767,8 @@ void CPlayer::Attack(float fPushTime, float fTime)
 
 void CPlayer::AttackFire(float fPushTime, float fTime)
 {
-	if (m_bRolling)
+	if (m_bRolling ||
+		m_bMenu)
 	{
 		return;
 	}
@@ -1182,51 +1787,42 @@ void CPlayer::AttackFire(float fPushTime, float fTime)
 		return;
 	}
 
-	m_bCharge = false;
-
 	m_pArrow->Enable(false);
 
 #ifdef _DEBUG
 	char strTime[32] = {};
-	sprintf_s(strTime, "PT: %.5f\n", fPushTime);
+	sprintf_s(strTime, "PT: %.5f\n", m_fPushTime);
 	OutputDebugStringA(strTime);
 #endif
 
 	if (m_pBullet)
 	{
-		m_pBullet->SetLimitDist(m_fPushTime * 500.f);
-		m_pBullet->SetDist(0.f);
-		m_pBullet->SetSpeed(1000.f);
+		if (m_fPushTime >= 0.5f)
+		{
+			m_pBullet->SetLimitDist(m_fPushTime * 500.f);
+			m_pBullet->SetDist(0.f);
+			m_pBullet->SetSpeed(1000.f);
+
+			m_bCharge = false;
+
+			CSound* pSnd = m_pBullet->FindComByType<CSound>();
+
+			pSnd->SetSound("Arrow_windloop");
+			pSnd->Play(fTime);
+
+			SAFE_RELEASE(pSnd);
+
+			m_pSnd->SetSound("arrow_shoot");
+			m_pSnd->SetVol(1.f);
+			m_pSnd->Play(fTime);
+		}
+		else
+		{
+			m_pBullet->Destroy();
+		}
 	}
 
 	SAFE_RELEASE(m_pBullet);
-}
-
-void CPlayer::AttackEnd()
-{
-}
-
-void CPlayer::Fire1(float fScale, float fTime)
-{
-	if (fScale != 0.f)
-	{
-		CObj* pMissile = m_pScene->CreateCloneObj("Missile", "Missile", m_pLayer, m_pScene->GetSceneType());
-
-		m_pSnd->SetSound("arrow_shoot");
-
-		m_pSnd->Play(fTime);
-
-		if (pMissile)
-		{
-			pMissile->SetWorldPos(GetWorldPos());
-
-			pMissile->SetWorldRot(GetWorldRot());
-
-			pMissile->AddWorldPos(pMissile->GetWorldAxis(WORLD_AXIS::AXIS_Y) * 32.f);
-		}
-
-		SAFE_RELEASE(pMissile);
-	}
 }
 
 void CPlayer::ShiftDown(float fPushTime, float fTime)
@@ -1234,7 +1830,10 @@ void CPlayer::ShiftDown(float fPushTime, float fTime)
 	if (m_bRolling ||
 		m_eState == STATE::DIE ||
 		m_fRollTime > 0.f ||
-		!m_bIdleEnable)
+		!m_bIdleEnable ||
+		m_bFly ||
+		m_fFlyDist != 0.f ||
+		m_bMenu)
 	{
 		return;
 	}
@@ -1246,7 +1845,13 @@ void CPlayer::ShiftDown(float fPushTime, float fTime)
 
 void CPlayer::ShiftUp(float fPushTIme, float fTime)
 {
-	m_fSpeed = 100.f;
+	if (m_bMenu)
+	{
+		Option(0.f, 0.f);
+		return;
+	}
+
+	m_fSpeed = m_fWalkSpeed;
 }
 
 float CPlayer::GetAngle()
@@ -1265,11 +1870,16 @@ float CPlayer::GetAngle()
 
 void CPlayer::ReturnArrow(float fPushTime, float fTime)
 {
+	if (m_bFly)
+	{
+		return;
+	}
+
 	m_fPushTime = fPushTime;
 
 	if (m_bCharge)
 	{
-		if (!m_pBullet)
+		if (!m_pBullet && m_bReady)
 		{
 			Attack(fPushTime, fTime);
 		}
@@ -1320,42 +1930,125 @@ void CPlayer::ReturnArrow(float fPushTime, float fTime)
 
 		if (fSpeed == 0.f)
 		{
-			Vector3 vPos = GetWorldPos();
-
-			Vector3 vArwPos = pArw->GetWorldPos();
-
-			Vector3 vDir = vPos - vArwPos;
-
-			Vector3 vAxisY = Vector3(0.f, 1.f, 0.f);
-
-			vDir.Normalize();
-
-			vArwPos += vDir * 100.f * fTime * fPushTime * fPushTime;
-
-			char cCol = m_pTileMap->GetTileCol(Vector2(vArwPos.x, vArwPos.y));
-
-			if (cCol == 0.f)
+			if (((CBullet*)pArw)->IsFixed())
 			{
-				int iCol = ((CBullet*)pArw)->GetCol();
+				static float fFixTimeMax = 2.f;
 
-				if (iCol == 0)
+				if (m_fPushTime >= fFixTimeMax)
 				{
-					pArw->AddWorldPos(vDir * 100.f * fTime * fPushTime * fPushTime);
+					FADE tFade = {};
+
+					tFade.fGray = 0.f;
+
+					GET_SINGLE(CShaderManager)->UpdateCBuffer("Fade", &tFade);
+
+					((CBullet*)pArw)->SetFix(false);
+
+					CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
+
+					pCam->SetZoom(false);
+
+					SAFE_RELEASE(pCam);
+
+					Vector3 vPos = pArw->GetWorldPos();
+
+					pArw->Destroy();
+
+					vPos.z = 0.f;
+
+					CSoulMonster* pMon = (CSoulMonster*)((CBullet*)pArw)->GetFixObj();
+
+					pMon->SetState(State::DIE);
+
+					SAFE_RELEASE(pMon);
+
+					for (int i = 0; i < 6; ++i)
+					{
+						char strName[32] = {};
+
+						sprintf_s(strName, "Soul%d", i);
+
+						CObj* pObj = m_pScene->CreateCloneObj(strName, "Soul", m_pLayer, m_pScene->GetSceneType());						
+
+						pObj->SetWorldPos(vPos);
+						pObj->SetWorldRotZ(10.f * i + 60.f);
+
+						((CSoul*)pObj)->SetTarget(this);
+						((CSoul*)pObj)->SetTargetPos(vPos);
+						((CSoul*)pObj)->SetOffset(i - 2.5f);
+
+						SAFE_RELEASE(pObj);
+					}
+
+					m_pSnd->SetSoundAndPlay("Release");
+
+					m_pSnd->SetSoundAndPlay("IntroLayer1");
+
+					m_pBow->Enable(false);
+				}
+
+				else
+				{
+					static bool bCheck = false;
+
+					if (!bCheck)
+					{
+						bCheck = true;
+						m_pBGM->SetSoundAndPlay("LightDrumLoop");
+					}
+
+					CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
+
+					pCam->SetZoom(true, 0.0625f);
+
+					SAFE_RELEASE(pCam);
+
+					((CTileMode*)m_pScene->GetGameMode())->SetFadeColor(0.f, 0.f, 0.f);
+					((CTileMode*)m_pScene->GetGameMode())->SetFade(fPushTime / 4.f, fPushTime / 4.f, 0.f);
 				}
 			}
 
-			float fDot = vAxisY.Dot(vDir);
+			else
+			{
+				if (fPushTime < 2.f)
+				{
+					((CTileMode*)m_pScene->GetGameMode())->SetFadeColor(0.f, 0.f, 0.f);
+					((CTileMode*)m_pScene->GetGameMode())->SetFade(fPushTime / 4.f, fPushTime / 4.f, 0.f);
+				}
 
-			float fAngle = DirectX::XMConvertToDegrees(acosf(fDot));
+				Vector3 vPos = GetWorldPos();
 
-			if (vDir.x > 0.f)
-				fAngle *= -1.f;
+				Vector3 vArwPos = pArw->GetWorldPos();
 
-			pArw->SetWorldRotZ(fAngle);
+				Vector3 vDir = vPos - vArwPos;
 
-			m_pSnd->SetSound("arrow_retrieval");
+				Vector3 vAxisY = Vector3(0.f, 1.f, 0.f);
 
-			m_pSnd->Play(0.f);
+				vDir.Normalize();
+
+				vArwPos += vDir * 100.f * fTime * (fPushTime + 1.f) * (fPushTime + 1.f);
+
+				char cCol = m_pTileMap->GetTileCol(Vector2(vArwPos.x, vArwPos.y));
+
+				if (cCol == 0.f)
+				{
+					int iCol = ((CBullet*)pArw)->GetCol();
+
+					if (iCol == 0)
+					{
+						pArw->AddWorldPos(vDir * 100.f * fTime * (fPushTime + 1.f) * (fPushTime + 1.f));
+					}
+				}
+
+				float fDot = vAxisY.Dot(vDir);
+
+				float fAngle = DirectX::XMConvertToDegrees(acosf(fDot));
+
+				if (vDir.x > 0.f)
+					fAngle *= -1.f;
+
+				pArw->SetWorldRotZ(fAngle);
+			}
 		}
 	}
 
@@ -1364,19 +2057,20 @@ void CPlayer::ReturnArrow(float fPushTime, float fTime)
 
 void CPlayer::RollEnd()
 {
-	m_bIdleEnable = true;
-	m_bRolling = false;
+	if (m_bRolling)
+	{
+		m_bIdleEnable = true;
+		m_bRolling = false;
 
-	if (m_fSpeed == 150.f)
-		m_fSpeed = 100.f;
+		m_pGrass->SetSpawnLimit(0.2f);
+		m_pTileDust->SetSpawnLimit(0.2f);
 
-	else if (m_fSpeed == 100.f && m_eState == STATE::SWIM)
-		m_fSpeed = 50.f;
-}
+		if (m_fSpeed == m_fWalkSpeed * 1.5f)
+			m_fSpeed = m_fWalkSpeed * 1.2f;
 
-void CPlayer::RollEnd(float fTime)
-{
-	RollEnd();
+		else if (m_fSpeed == m_fWalkSpeed && m_eState == STATE::SWIM)
+			m_fSpeed = m_fWalkSpeed * 0.6f;
+	}
 }
 
 void CPlayer::ColStart(CCollider* pSrc, CCollider* pDst, float fTime)
@@ -1385,7 +2079,11 @@ void CPlayer::ColStart(CCollider* pSrc, CCollider* pDst, float fTime)
 
 	std::string strDst = pDst->GetName();
 
-	if (strDst == "JAM/colossus")
+	if (strDst == "JAM/colossus" || 
+		strDst == "JAM/brainfreeze" ||
+		strDst == "JAM/eyecube" ||
+		strDst == "JAM/JAM" ||
+		strDst == "JAM/jam")
 	{
 		if (((CTileMode*)m_pScene->GetGameMode())->GetLock())
 			return;
@@ -1393,30 +2091,45 @@ void CPlayer::ColStart(CCollider* pSrc, CCollider* pDst, float fTime)
 		m_strMap = strDst + ".tmx";
 
 		m_bWalkIn = true;
+		((CTileMode*)m_pScene->GetGameMode())->SetFadeColor(0.f, 0.f, 0.f);
+		((CTileMode*)m_pScene->GetGameMode())->SetFade(0.f, 1.f, 2.f / 3.f);
+		CObj* pObj = m_pScene->FindLayer("Default")->FindObj("music_area");
 
-		CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
+		if (pObj)
+		{
+			CSound* pSnd = (CSound*)pObj->FindSceneComponent("Hub1");
 
-		pCam->SetZoom(true, -150.f);
-		pCam->SetMovePos(GetWorldPos());
+			pSnd->SetFade(true, false);
 
-		SAFE_RELEASE(pCam);
+			SAFE_RELEASE(pSnd);
+
+			pObj->Release();
+		}
+
+		m_pSnd->SetSoundAndPlay("EnterDoor");
 	}
 
-	else if (strDst == "JAM/JAM")
+	else if (strDst == "chamber")
 	{
-		if (((CTileMode*)m_pScene->GetGameMode())->GetLock())
-			return;
-
-		m_strMap = strDst + ".tmx";
+		m_strMap = "Ending";
 
 		m_bWalkIn = true;
 
-		CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
+		((CTileMode*)m_pScene->GetGameMode())->SetFadeColor(0.f, 0.f, 0.f);
+		((CTileMode*)m_pScene->GetGameMode())->SetFade(0.f, 1.f, 2.f / 3.f);
 
-		pCam->SetZoom(true, -150.f);
-		pCam->SetMovePos(GetWorldPos());
+		CObj* pObj = m_pScene->FindLayer("Default")->FindObj("music_area");
 
-		SAFE_RELEASE(pCam);
+		if (pObj)
+		{
+			CSound* pSnd = (CSound*)pObj->FindSceneComponent("Hub1");
+
+			pSnd->SetFade(true, false);
+
+			SAFE_RELEASE(pSnd);
+
+			pObj->Release();
+		}
 	}
 
 	else if (strDst == "RightHandBody" ||
@@ -1443,13 +2156,96 @@ void CPlayer::ColStart(CCollider* pSrc, CCollider* pDst, float fTime)
 				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * -m_fSpeed * fTime * m_fScaleY);
 			}
 		}
+
+		m_cCol = -1;
+	}
+
+	else if (strDst == "CubeBody")
+	{
+		CEyecube* pEye = (CEyecube*)pDst->GetObj();
+
+		if (!pEye->IsTurned())
+		{
+			SetState(STATE::DIE);
+		}
+
+		else
+		{
+			if (m_fScaleX != 0.f)
+			{
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * -m_fSpeed * fTime * m_fScaleX * m_fScaleX);
+			}
+
+			if (m_fScaleY != 0.f)
+			{
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * -m_fSpeed * fTime * m_fScaleY);
+			}
+		}
+
+		m_cCol = -1;
+	}
+
+	else if (strDst == "IceBody" ||
+		strDst == "BrainBody")
+	{
+		if (strDst == "IceBody")
+		{
+			m_bImpact = true;
+		}
+
+		CBrainFreeze* pBrain = (CBrainFreeze*)pDst->GetObj();
+
+		State eState = pBrain->GetState();
+
+		if (eState == State::ATTACK)
+		{
+			SetState(STATE::DIE);
+		}
+
+		else
+		{
+			if (m_fScaleX != 0.f)
+			{
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * -m_fSpeed * fTime * m_fScaleX * m_fScaleX);
+			}
+
+			if (m_fScaleY != 0.f)
+			{
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * -m_fSpeed * fTime * m_fScaleY);
+			}
+		}
+		m_cCol = -1;
+	}
+
+	else if (strDst == "FireBody")
+	{
+		SetBurn();
+		SetState(STATE::DIE);
+	}
+
+	else if (strDst == "DoorLBody" ||
+	strDst == "DoorRBody")
+	{
+	if (m_fScaleX != 0.f)
+	{
+		m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * -m_fSpeed * fTime * m_fScaleX * m_fScaleX);
+	}
+
+	if (m_fScaleY != 0.f)
+	{
+		m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * -m_fSpeed * fTime * m_fScaleY);
+	}
+
+	m_cCol = -1;
 	}
 }
 
 void CPlayer::ColStay(CCollider* pSrc, CCollider* pDst, float fTime)
 {
-	if (pDst->GetName() == "LeftHandBody" ||
-		pDst->GetName() == "RightHandBody")
+	std::string strDst = pDst->GetName();
+
+	if (strDst == "LeftHandBody" ||
+		strDst == "RightHandBody")
 	{
 		RectInfo tInfo = ((CColliderRect*)pSrc)->GetInfo();
 
@@ -1466,11 +2262,82 @@ void CPlayer::ColStay(CCollider* pSrc, CCollider* pDst, float fTime)
 		{
 			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * -m_fSpeed * fTime * m_fScaleY);
 		}
+
+		m_cCol = -1;
+	}
+
+	else if (strDst == "CubeBody")
+	{
+		CEyecube* pEye = (CEyecube*)pDst->GetObj();
+
+			if (m_fScaleX != 0.f)
+			{
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * -m_fSpeed * fTime * m_fScaleX * m_fScaleX);
+			}
+
+			if (m_fScaleY != 0.f)
+			{
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * -m_fSpeed * fTime * m_fScaleY);
+			}
+
+			m_cCol = -1;
+	}
+
+	else if (strDst == "IceBody" ||
+		strDst == "BrainBody")
+	{
+		CBrainFreeze* pBrain = (CBrainFreeze*)pDst->GetObj();
+
+		State eState = pBrain->GetState();
+
+		if (eState == State::ATTACK ||
+			pBrain->IsBrain())
+		{
+			SetState(STATE::DIE);
+		}
+
+		else
+		{
+			if (m_fScaleX != 0.f)
+			{
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * -m_fSpeed * fTime * m_fScaleX * m_fScaleX);
+			}
+
+			if (m_fScaleY != 0.f)
+			{
+				m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * -m_fSpeed * fTime * m_fScaleY);
+			}
+		}
+
+		m_cCol = -1;
+	}
+
+	else if (strDst == "FireBody")
+	{
+		SetBurn();
+		SetState(STATE::DIE);
+	}
+
+	else if (strDst == "DoorLBody" ||
+		strDst == "DoorRBody")
+	{
+		if (m_fScaleX != 0.f)
+		{
+			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_X) * -m_fSpeed * fTime * m_fScaleX * m_fScaleX);
+		}
+
+		if (m_fScaleY != 0.f)
+		{
+			m_pMesh->AddRelativePos(m_pMesh->GetRelativeAxis(WORLD_AXIS::AXIS_Y) * -m_fSpeed * fTime * m_fScaleY);
+		}
+
+		m_cCol = -1;
 	}
 }
 
 void CPlayer::ColEnd(CCollider* pSrc, CCollider* pDst, float fTime)
 {
+	m_cCol = 0;
 }
 
 void CPlayer::Option(float fPushTime, float fTime)
@@ -1479,13 +2346,28 @@ void CPlayer::Option(float fPushTime, float fTime)
 
 	CObj* pObj = pUI->FindObj("Button");
 
-	pObj->Enable(!pObj->IsEnable());
+	if (pObj)
+	{
+		bool bEnable = pObj->IsEnable();
+
+		m_bMenu = !bEnable;
+
+		pObj->Enable(!bEnable);
+
+		if (!bEnable)
+		{
+			((CTileMode*)m_pScene->GetGameMode())->SetFadeColor(0.f, 0.f, 0.f);
+			((CTileMode*)m_pScene->GetGameMode())->SetFade(0.f, 0.5f, 1.f);
+		}
+
+		else
+		{
+			((CTileMode*)m_pScene->GetGameMode())->SetFadeColor(0.f, 0.f, 0.f);
+			((CTileMode*)m_pScene->GetGameMode())->SetFade(0.5f, 0.f, -1.f);
+		}
+	}
 
 	SAFE_RELEASE(pObj);
-}
-
-void CPlayer::Fire2(float fScale, float fTime)
-{
 }
 
 void CPlayer::TileMatToggle(float fScale, float fTime)
@@ -1556,56 +2438,126 @@ void CPlayer::Stage1(float fScale, float fTime)
 	ChangeStage("JAM\\colossus.tmx");
 }
 
+void CPlayer::Stage2(float fScale, float fTime)
+{
+	ChangeStage("JAM\\brainfreeze.tmx");
+}
+
+void CPlayer::Stage3(float fScale, float fTime)
+{
+	ChangeStage("JAM\\eyecube.tmx");
+}
+
 void CPlayer::CloseUp(float fScale, float fTime)
 {
-	CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
-
-	pCam->SetZoom(true);
-
-	Vector3 vPos = GetWorldPos();
-
-	switch (m_eDir)
+	if (m_bFly)
 	{
-	case DIR_8::U:
-		pCam->SetMovePos(vPos + Vector3(0.f, 100.f, 0.f));
-		break;
-	case DIR_8::RU:
-		pCam->SetMovePos(vPos + Vector3(70.7f, 70.7f, 0.f));
-		break;
-	case DIR_8::R:
-		pCam->SetMovePos(vPos + Vector3(100.f, 0.f, 0.f));
-		break;
-	case DIR_8::RD:
-		pCam->SetMovePos(vPos + Vector3(70.7f, -70.7f, 0.f));
-		break;
-	case DIR_8::D:
-		pCam->SetMovePos(vPos + Vector3(0.f, -100.f, 0.f));
-		break;
-	case DIR_8::LD:
-		pCam->SetMovePos(vPos + Vector3(-70.7f, -70.7f, 0.f));
-		break;
-	case DIR_8::L:
-		pCam->SetMovePos(vPos + Vector3(-100.f, 0.f, 0.f));
-		break;
-	case DIR_8::LU:
-		pCam->SetMovePos(vPos + Vector3(-70.7f, 70.7f, 0.f));
-		break;
+		return;
 	}
 
-	SAFE_RELEASE(pCam);
+	else if (m_bMenu)
+	{
+		if (m_iMenu == 0)
+		{
+			Option(0.f, 0.f);
+		}
+
+		else if (m_iMenu == 1)
+		{
+
+		}
+		else
+		{
+			m_bMenu = false;
+
+			m_pBGM->SetSound("Hub1");
+			m_pBGM->Stop();
+
+			GET_SINGLE(CBossManager)->Save();
+
+			GET_SINGLE(CSceneManager)->CreateNextScene();
+
+			GET_SINGLE(CSceneManager)->SetGameMode<CStartGameMode>(false);
+		}
+	}
+
+	if (m_bCharge)
+	{
+		CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
+
+		pCam->SetZoom(true);
+
+		m_pSnd->SetSound("arrow_charge");
+		m_pSnd->SetVol(1.f);
+		m_pSnd->Play(fTime);
+
+		Vector3 vPos = GetWorldPos();
+
+		switch (m_eDir)
+		{
+		case DIR_8::U:
+			pCam->SetMovePos(vPos + Vector3(0.f, 100.f, 0.f));
+			break;
+		case DIR_8::RU:
+			pCam->SetMovePos(vPos + Vector3(70.7f, 70.7f, 0.f));
+			break;
+		case DIR_8::R:
+			pCam->SetMovePos(vPos + Vector3(100.f, 0.f, 0.f));
+			break;
+		case DIR_8::RD:
+			pCam->SetMovePos(vPos + Vector3(70.7f, -70.7f, 0.f));
+			break;
+		case DIR_8::D:
+			pCam->SetMovePos(vPos + Vector3(0.f, -100.f, 0.f));
+			break;
+		case DIR_8::LD:
+			pCam->SetMovePos(vPos + Vector3(-70.7f, -70.7f, 0.f));
+			break;
+		case DIR_8::L:
+			pCam->SetMovePos(vPos + Vector3(-100.f, 0.f, 0.f));
+			break;
+		case DIR_8::LU:
+			pCam->SetMovePos(vPos + Vector3(-70.7f, 70.7f, 0.f));
+			break;
+		}
+
+		SAFE_RELEASE(pCam);
+	}
+
+	else
+	{
+		m_pSnd->SetSound("arrow_retrieval");
+		m_pSnd->SetVol(1.f);
+		m_pSnd->Play(0.f);
+	}
 
 	Attack(fScale, fTime);
 }
 
 void CPlayer::CloseUpEnd(float fScale, float fTime)
 {
+	if (m_bFly)
+	{
+		return;
+	}
+
 	CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
 
 	pCam->SetZoom(false);
 
+	m_pSnd->SetSound("arrow_charge");
+	m_pSnd->Stop();
+
+	m_pSnd->SetSound("arrow_retrieval");
+	m_pSnd->Stop();
+
 	SAFE_RELEASE(pCam);
 
+	((CTileMode*)m_pScene->GetGameMode())->SetFade(0.f, 0.f, 0.f);
+	
 	AttackFire(fScale, fTime);
+
+	m_bReady = true;
 }
 
 char CPlayer::TileMapCol(CTileMap* pMap)
@@ -1616,7 +2568,7 @@ char CPlayer::TileMapCol(CTileMap* pMap)
 	Vector2 vExtent = m_pRC->GetExtent();
 
 	Vector3 vScale = Vector3(vExtent.x, vExtent.y, 0.f);
-	Vector3 vPos = GetWorldPos() - GetPivot() * vScale;
+	Vector3 vPos = GetWorldPos() - GetPivot() * vScale + Vector3(8.f, 8.f, 0.f);
 
 	char cCol = pMap->GetTileCol(Vector2(vPos.x, vPos.y));
 
@@ -1668,7 +2620,7 @@ void CPlayer::SetState(STATE eState)
 	{
 		m_bRolling = false;
 		m_bIdleEnable = true;
-		m_fSpeed = m_fPrevSpeed;
+		//m_fSpeed = m_fPrevSpeed;
 	}
 
 	STATE ePrevState = m_eState;
@@ -1726,7 +2678,6 @@ void CPlayer::SetState(STATE eState)
 		break;
 	case STATE::WALK:
 	{
-		m_fSpeed = 100.f;
 		switch (m_eDir)
 		{
 		case DIR_8::U:
@@ -1784,6 +2735,7 @@ void CPlayer::SetState(STATE eState)
 	case STATE::ROLL:
 	{
 		m_fPrevSpeed = m_fSpeed;
+		m_fSpeed *= 1.5f;
 
 		if (ePrevState == STATE::SWIM)
 		{
@@ -1797,6 +2749,9 @@ void CPlayer::SetState(STATE eState)
 			m_pSnd->SetSound("Roll");
 
 			m_pSnd->Play(0.f);
+
+			m_pGrass->SetSpawnLimit(0.05f);
+			m_pTileDust->SetSpawnLimit(0.05f);
 
 			m_bRolling = true;
 			m_bIdleEnable = false;
@@ -1843,7 +2798,7 @@ void CPlayer::SetState(STATE eState)
 		break;
 	case STATE::SWIM:
 	{
-		m_fSpeed = 50.f;
+		m_fSpeed = m_fWalkSpeed / 2.f;
 		switch (m_eDir)
 		{
 		case DIR_8::U:
@@ -1907,59 +2862,148 @@ void CPlayer::SetState(STATE eState)
 		if (ePrevState != STATE::DIE)
 		{
 			m_fDieDelay = 1.f;
+			((CTileMode*)m_pScene->GetGameMode())->SetFadeColor(0.f, 0.f, 0.f);
+
+			if (!m_bBurn)
+			{
+				m_pSnd->SetSound("Crush");
+
+				m_pBlood->Resume();
+			}
+
+			else if(m_bImpact)
+			{
+				m_pSnd->SetSound("Impact");
+			}
+
+			else
+			{
+				m_pSnd->SetSound("Laser");
+			}
+
+			m_pSnd->SetVol(0.5f);
+			m_pSnd->Play(0.f);
+
+			m_pBow->Enable(false);
+			m_pArrow->Enable(false);
 		}
 
-		switch (m_eDir)
+		if (!m_bBurn)
 		{
-		case DIR_8::U:
-		{
-			ChangeSequenceAll("DieU");
-			SetDefaultClipAll("DieU");
-		}
-		break;
-		case DIR_8::RU:
-		{
-			ChangeSequenceAll("DieRU");
-			SetDefaultClipAll("DieRU");
-		}
-		break;
-		case DIR_8::R:
-		{
-			ChangeSequenceAll("DieR");
-			SetDefaultClipAll("DieR");
-		}
-		break;
-		case DIR_8::RD:
-		{
-			ChangeSequenceAll("DieRD");
-			SetDefaultClipAll("DieRD");
-		}
-		break;
-		case DIR_8::D:
-		{
-			ChangeSequenceAll("DieD");
-			SetDefaultClipAll("DieD");
-		}
-		break;
-		case DIR_8::LD:
-		{
+			switch (m_eDir)
+			{
+			case DIR_8::U:
+			{
+				ChangeSequenceAll("DieU");
+				SetDefaultClipAll("DieU");
+			}
+			break;
+			case DIR_8::RU:
+			{
+				ChangeSequenceAll("DieRU");
+				SetDefaultClipAll("DieRU");
+			}
+			break;
+			case DIR_8::R:
+			{
+				ChangeSequenceAll("DieR");
+				SetDefaultClipAll("DieR");
+			}
+			break;
+			case DIR_8::RD:
+			{
+				ChangeSequenceAll("DieRD");
+				SetDefaultClipAll("DieRD");
+			}
+			break;
+			case DIR_8::D:
+			{
+				ChangeSequenceAll("DieD");
+				SetDefaultClipAll("DieD");
+			}
+			break;
+			case DIR_8::LD:
+			{
 
-			ChangeSequenceAll("DieRD");
-			SetDefaultClipAll("DieRD");
+				ChangeSequenceAll("DieRD");
+				SetDefaultClipAll("DieRD");
+			}
+			break;
+			case DIR_8::L:
+			{
+				ChangeSequenceAll("DieR");
+				SetDefaultClipAll("DieR");
+			}
+			break;
+			case DIR_8::LU:
+			{
+				ChangeSequenceAll("DieRU");
+				SetDefaultClipAll("DieRU");
+			}
+			break;
+			}
 		}
-		break;
-		case DIR_8::L:
+
+		else
 		{
-			ChangeSequenceAll("DieR");
-			SetDefaultClipAll("DieR");
-		}
-		break;
-		case DIR_8::LU:
-		{
-			ChangeSequenceAll("DieRU");
-			SetDefaultClipAll("DieRU");
-		}
-		break;
+			CMaterial* pMtrl = m_pMesh->GetMaterial();
+
+			pMtrl->SetDiffuseColor(0.f, 0.f, 0.f, 1.f);
+
+			SAFE_RELEASE(pMtrl);
+
+			switch (m_eDir)
+			{
+			case DIR_8::U:
+			{
+				ChangeSequenceAll("IdleU");
+				SetDefaultClipAll("IdleU");
+			}
+			break;
+			case DIR_8::RU:
+			{
+				ChangeSequenceAll("IdleRU");
+				SetDefaultClipAll("IdleRU");
+			}
+			break;
+			case DIR_8::R:
+			{
+				ChangeSequenceAll("IdleR");
+				SetDefaultClipAll("IdleR");
+			}
+			break;
+			case DIR_8::RD:
+			{
+				ChangeSequenceAll("IdleRD");
+				SetDefaultClipAll("IdleRD");
+			}
+			break;
+			case DIR_8::D:
+			{
+				ChangeSequenceAll("IdleD");
+				SetDefaultClipAll("IdleD");
+			}
+			break;
+			case DIR_8::LD:
+			{
+
+				ChangeSequenceAll("IdleRD");
+				SetDefaultClipAll("IdleRD");
+			}
+			break;
+			case DIR_8::L:
+			{
+				ChangeSequenceAll("IdleR");
+				SetDefaultClipAll("IdleR");
+			}
+			break;
+			case DIR_8::LU:
+			{
+				ChangeSequenceAll("IdleRU");
+				SetDefaultClipAll("IdleRU");
+			}
+			break;
+			}
 		}
 	}
 		break;
@@ -2002,19 +3046,79 @@ void CPlayer::LookBack()
 {
 	if (m_eDir != DIR_8::U && m_eDir != DIR_8::D)
 	{
-		m_pMesh->AddWorldRotY(180.f);
+		Vector3 vRot = m_pMesh->GetWorldRot();
+
+		SetWorldRotYAll(vRot.y + 180.f);
 	}
 
 	m_eDir = (DIR_8)(((int)m_eDir + 4)%(int)DIR_8::END);
+
+	m_pSnd->SetSound("Roll");
+	m_pSnd->Stop();
+
+	m_pSnd->SetSoundAndPlay("Roll_bash");
 }
 
 void CPlayer::ChangeStage(const char* pStage)
 {
-	if (strcmp(pStage, "JAM/JAM.tmx") == 0)
+	m_pBGM->SetSound("Hub1");
+	m_pBGM->Stop();
+
+	if (strcmp(pStage, "JAM/JAM.tmx") == 0 ||
+		strcmp(pStage, "JAM/jam.tmx")== 0)
 	{
 		GET_SINGLE(CSceneManager)->CreateNextScene();
 
 		GET_SINGLE(CSceneManager)->SetGameMode<CMainGameMode>(false);
+	}
+
+	else if (strcmp(pStage, "JAM\\brainfreeze.tmx") == 0 ||
+		strcmp(pStage, "JAM/brainfreeze.tmx") == 0)
+	{
+		GET_SINGLE(CSceneManager)->CreateNextScene();
+
+		GET_SINGLE(CSceneManager)->SetGameMode<CBrainMode>(false);
+
+		CScene* pScene = GET_SINGLE(CSceneManager)->GetNextScene();
+
+		CTileMode* pMode = (CTileMode*)pScene->GetGameMode();
+
+		pMode->LoadXml(pStage, MAP_PATH);
+	}
+
+	else if (strcmp(pStage, "JAM\\colossus.tmx") == 0 ||
+		strcmp(pStage, "JAM/colossus.tmx") == 0)
+	{
+		GET_SINGLE(CSceneManager)->CreateNextScene();
+
+		GET_SINGLE(CSceneManager)->SetGameMode<CColossusMode>(false);
+
+		CScene* pScene = GET_SINGLE(CSceneManager)->GetNextScene();
+
+		CTileMode* pMode = (CTileMode*)pScene->GetGameMode();
+
+		pMode->LoadXml(pStage, MAP_PATH);
+	}
+
+	else if (strcmp(pStage, "JAM\\eyecube.tmx") == 0 ||
+		strcmp(pStage, "JAM/eyecube.tmx") == 0)
+	{
+		GET_SINGLE(CSceneManager)->CreateNextScene();
+
+		GET_SINGLE(CSceneManager)->SetGameMode<CEyeCubeMode>(false);
+
+		CScene* pScene = GET_SINGLE(CSceneManager)->GetNextScene();
+
+		CTileMode* pMode = (CTileMode*)pScene->GetGameMode();
+
+		pMode->LoadXml(pStage, MAP_PATH);
+	}
+
+	else if (strcmp(pStage, "Ending") == 0)
+	{
+		GET_SINGLE(CSceneManager)->CreateNextScene();
+
+		GET_SINGLE(CSceneManager)->SetGameMode<CEndGameMode>(false);
 	}
 
 	else
@@ -2039,20 +3143,189 @@ void CPlayer::Die(float fTime)
 		return;
 	}
 
-	CMaterial* pMtrl = m_pFade->GetMaterial();
+	m_fDieDelay -= fTime;
 
-	Vector4 vDif = pMtrl->GetDif();
+	((CTileMode*)m_pScene->GetGameMode())->SetFadeColor(0.f, 0.f, 0.f);
+	((CTileMode*)m_pScene->GetGameMode())->FadeOut(fTime);
 
-	vDif.w += fTime;
-
-	pMtrl->SetDiffuseColor(vDif);
-
-	SAFE_RELEASE(pMtrl);
-
-	if (vDif.w >= 1.f)
-	{
+	if (m_fDieDelay <= -1.f)
+	{		
 		GET_SINGLE(CSceneManager)->CreateNextScene();
 
 		GET_SINGLE(CSceneManager)->SetGameMode<CMainGameMode>(false);
+
+		SetWorldPos(1376.f, 160.f * 16.f - 1359.f, 0.f);
+
+		++m_iDeath;
 	}
+}
+
+void CPlayer::Step(int iFrame, float fTime)
+{
+	char strMat[32] = {};
+
+	switch (m_eMatType)
+	{
+	case MAT_TYPE::GRASS:
+		sprintf_s(strMat, "GrassStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::DIRT:
+		sprintf_s(strMat, "GloopStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::WATER_2:
+		sprintf_s(strMat, "WaterStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::PURPLE:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::CROSS:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::FOREST:
+		sprintf_s(strMat, "GrassStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::RHOMBUS:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::SNOW:
+		sprintf_s(strMat, "SnowStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::ICE:
+		sprintf_s(strMat, "IceStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::MUD:
+		sprintf_s(strMat, "GloopStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::SOIL:
+		sprintf_s(strMat, "SandStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::TILE:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::L:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::R:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::O:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::WATER:
+		sprintf_s(strMat, "ShallowStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::MAGMA:
+		sprintf_s(strMat, "GloopStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::GREEN_GRASS:
+		sprintf_s(strMat, "GrassStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::TILE_BLUE:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::RIGHT_UP:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::LEFT_UP:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::UP_DOWN:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::UP:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::DOWN:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::RAIN_W:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::UP_DOWN_BLUE:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::LIFT_UP:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	case MAT_TYPE::LIFT_UP_BLUE:
+		sprintf_s(strMat, "StoneStep%d", iFrame + 1);
+		break;
+	default:
+		return;
+	}
+
+	m_pSnd->SetSound(strMat);
+	m_pSnd->SetVol(1.f);
+	m_pSnd->Play(fTime);
+}
+
+void CPlayer::MenuLeft(float fPushTime, float fTime)
+{
+	if (m_bMenu)
+	{
+		m_iMenu = (m_iMenu + 2) % 3;
+
+		MenuUpdate();
+	}
+}
+
+void CPlayer::MenuRight(float fPushTime, float fTime)
+{
+	if (m_bMenu)
+	{
+		m_iMenu = (m_iMenu + 4) % 3;
+
+		MenuUpdate();
+	}
+}
+
+void CPlayer::MenuUpdate()
+{
+	CObj* pObj = m_pScene->FindLayer("UI")->FindObj("Button");
+
+	if (pObj)
+	{
+		CSpriteComponent* pCom = (CSpriteComponent*)pObj->FindSceneComponent("Return");
+		CSpriteComponent* pCom2 = (CSpriteComponent*)pObj->FindSceneComponent("Option");
+		CSpriteComponent* pCom3 = (CSpriteComponent*)pObj->FindSceneComponent("Exit");
+
+		if (m_iMenu == 0)
+		{
+			pCom->ChangeSequence("On");
+			pCom2->ChangeSequence("Off");
+			pCom3->ChangeSequence("Off");
+		}
+
+		else if (m_iMenu == 1)
+		{
+			pCom->ChangeSequence("Off");
+			pCom2->ChangeSequence("On");
+			pCom3->ChangeSequence("Off");
+		}
+
+		else
+		{
+			pCom->ChangeSequence("Off");
+			pCom2->ChangeSequence("Off");
+			pCom3->ChangeSequence("On");
+		}
+
+		SAFE_RELEASE(pCom);
+		SAFE_RELEASE(pCom2);
+		SAFE_RELEASE(pCom3);
+
+		pObj->Release();
+	}
+}
+
+void CPlayer::SpawnWindow()
+{
+	if (ImGui::Begin("Player"))
+	{	
+		int iCol = m_cCol;
+		ImGui::SliderInt("Col", &iCol, 0, 255);
+		m_cCol = iCol;
+		ImGui::SliderFloat("Speed", &m_fSpeed, 0.f, 200.f);
+	}
+	ImGui::End();
 }

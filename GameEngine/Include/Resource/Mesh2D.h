@@ -13,9 +13,6 @@ private:
 	~CMesh2D();
 
 private:
-	D3D_PRIMITIVE_TOPOLOGY	m_ePrimitive;
-	VertexBuffer		m_tVB;
-	IndexBuffer			m_tIB;
 
 public:
 	bool Init();
@@ -25,6 +22,7 @@ public:
 		DXGI_FORMAT eFmt = DXGI_FORMAT_UNKNOWN);
 	virtual void Render(float fTime);
 	virtual void RenderInstancing(void* pInstancedBuffer, int iCnt, int iSize);
+	virtual void RenderParticle(int iCount);
 
 public:
 	virtual void Save(FILE* pFile);

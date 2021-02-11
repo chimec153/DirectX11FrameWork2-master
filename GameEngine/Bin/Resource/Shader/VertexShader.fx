@@ -70,7 +70,7 @@ PS_OUTPUT_COLOR StandardSpritePS(VS_OUTPUT input)
 {
 	PS_OUTPUT_COLOR output = (PS_OUTPUT_COLOR)0;
 
-	output.vColor = gDiffuseMap.Sample(g_sPoint, input.vUV) * g_vDif;
+	output.vColor = (gDiffuseMap.Sample(g_sPoint, input.vUV) + g_vAmb) * g_vDif;
 
 	if (output.vColor.a == 0.f)
 	{

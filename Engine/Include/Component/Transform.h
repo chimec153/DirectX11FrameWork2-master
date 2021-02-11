@@ -43,6 +43,8 @@ public:
 	void SetInheritRotY(bool bInherit);
 	void SetInheritRotZ(bool bInherit);
 	void SetInheritPos(bool bIn);
+	void SetUpdateScale(bool bScale);
+	void SetUpdateRot(bool bRot);
 	Vector3 GetVelocityScale()			const;
 	Vector3 GetVelocityRot()			const;
 	Vector3 GetVelocity()				const;
@@ -84,6 +86,7 @@ private:
 	Vector3						m_vWorldAxis[(int)WORLD_AXIS::AXIS_END];
 	Vector3						m_vPivot;
 	Vector3						m_vMeshSize;
+	Vector4						m_vQuaternion;
 
 public:
 	Vector3 GetWorldScale()			const;
@@ -92,6 +95,7 @@ public:
 	Vector3 GetWorldAxis(WORLD_AXIS axis)	const;
 	Vector3 GetPivot()				const;
 	Vector3 GetMeshSize()			const;
+	const Vector4& GetQuarternion()	const;
 
 public:
 	void SetWorldScale(const Vector3& v);
@@ -115,6 +119,12 @@ public:
 	void SetPivot(const Vector3& v);
 	void SetPivot(float x, float y, float z);
 	void SetMeshSize(const Vector3& v);
+	void Slerp(const Vector4& p, const Vector4& q, float s);
+	void Slerp(const Vector4& q, float s);
+	void SetQuaternionRot(const Vector4& vAxis, float fAngle);
+	void AddQuaternionRot(const Vector4& vAxis, float fAngle);
+	void SetQuaternionRotNorm(const Vector4& vAxis, float fAngle);
+	void AddQuaternionRotNorm(const Vector4& vAxis, float fAngle);
 
 private:
 	Matrix						m_matScale;
@@ -139,5 +149,8 @@ public:
 public:
 	void Save(FILE* pFile);
 	void Load(FILE* pFile);
+
+	public:
+		void SpawnWindow();
 };
 

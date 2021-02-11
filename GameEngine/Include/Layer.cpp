@@ -72,11 +72,14 @@ CObj* CLayer::FindObj(const std::string& strTag) const
 
 	for (; iter != iterEnd; ++iter)
 	{
-		if ((*iter)->GetName() == strTag)
+		if ((*iter))
 		{
-			(*iter)->AddRef();
+			if ((*iter)->GetName() == strTag)
+			{
+				(*iter)->AddRef();
 
-			return (*iter);
+				return (*iter);
+			}
 		}
 	}
 
@@ -91,8 +94,8 @@ bool CLayer::IsStart() const
 void CLayer::AddObj(CObj* pObj)
 {
 	pObj->AddRef();
-	pObj->SetLayer(this);
 	pObj->SetScene(m_pScene);
+	pObj->SetLayer(this);
 
 	m_ObjList.push_back(pObj);
 }
@@ -164,6 +167,11 @@ void CLayer::AddTileInstState(const std::string& strKey)
 {
 	if (m_pTileInst)
 		m_pTileInst->AddState(strKey);
+}
+
+CScene* CLayer::GetScene() const
+{
+	return m_pScene;
 }
 
 bool CLayer::Init()
@@ -466,4 +474,42 @@ bool CLayer::SortYCom(CSceneComponent* pSrc, CSceneComponent* pDst)
 bool CLayer::SortZ(CSceneComponent* pSrc, CSceneComponent* pDst)
 {
 	return ((CUIControl*)pSrc)->GetZOrder() > ((CUIControl*)pDst)->GetZOrder();
+}
+
+void CLayer::SpawnWindow()
+{
+	std::list<CObj*>::iterator iter = m_ObjList.begin();
+	std::list<CObj*>::iterator iterEnd = m_ObjList.end();
+
+	size_t iSz = m_ObjList.size();
+	char** strLayers = new char* [iSz];
+	int i = 0;
+
+	static int item = 0;
+	for (; iter != iterEnd;++iter)
+	{
+		strLayers[i] = new char[256];
+
+		strcpy_s(strLayers[i++], (*iter)->GetName().length() + 1, (*iter)->GetName().c_str());
+
+		if (item == i - 1)
+		{
+			(*iter)->SpawnWindow();
+		}
+
+	}
+
+	if (ImGui::Begin("Objects"))
+	{
+		ImGui::ListBox("Objects", &item, strLayers, (int)iSz);
+	}
+	ImGui::End();
+
+
+	for (size_t i = 0; i < iSz; ++i)
+	{
+		delete[] strLayers[i];
+	}
+
+	delete[] strLayers;
 }

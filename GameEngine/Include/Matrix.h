@@ -51,6 +51,7 @@ typedef __declspec(align(16)) union _tagMatrix
 	void RotateY(float y);
 	void RotateZ(float z);
 	void RotateAxis(const union _tagVector3& _v, float fAngle);
+	void RotationQuaternion(const _tagVector4& q);
 
 	static _tagMatrix StaticIdentity();
 	static _tagMatrix StaticTranspose(const _tagMatrix& m);
@@ -65,6 +66,7 @@ typedef __declspec(align(16)) union _tagMatrix
 	static _tagMatrix StaticRotateY(float y);
 	static _tagMatrix StaticRotateZ(float z);
 	static _tagMatrix StaticRotateAxis(const union _tagVector3& _v, float fAngle);
+	static _tagMatrix StaticRotationQuaternion(const _tagVector4& q);
 
 }Matrix, *PMatrix;
 

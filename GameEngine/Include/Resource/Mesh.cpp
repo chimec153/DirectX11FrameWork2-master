@@ -4,32 +4,17 @@
 #include "../Device.h"
 
 CMesh::CMesh()	:
-	m_pMaterial(nullptr)
+	m_ePrimitive(D3D_PRIMITIVE_TOPOLOGY_UNDEFINED)
+	, m_pInstancingBuffer(nullptr)
 {
-
+	memset(&m_tVB, 0, sizeof(VertexBuffer));
+	memset(&m_tIB, 0, sizeof(IndexBuffer));
 }
 
 CMesh::~CMesh()
 {
-	SAFE_RELEASE(m_pMaterial);
-}
-
-void CMesh::SetMaterial(CMaterial* pMaterial)
-{
-	SAFE_RELEASE(m_pMaterial);
-
-	m_pMaterial = pMaterial;
-
-	if (m_pMaterial)
-		m_pMaterial->AddRef();
-}
-
-CMaterial* CMesh::GetMaterial() const
-{
-	if (m_pMaterial)
-		m_pMaterial->AddRef();
-
-	return m_pMaterial;
+	SAFE_RELEASE(m_tVB.pBuffer);
+	SAFE_RELEASE(m_tIB.pBuffer);
 }
 
 bool CMesh::Init()
@@ -69,11 +54,42 @@ bool CMesh::CreateMesh(D3D_PRIMITIVE_TOPOLOGY eTop, void* pVtxData, int iVtxSz, 
 	return false;
 }
 
+bool CMesh::CreateParticleMesh(D3D_PRIMITIVE_TOPOLOGY eTop, void* pVtxData, 
+	int iVtxSz, int iVtxCnt, D3D11_USAGE eVtxUsg, void* pIdxData, 
+	int iIdxSz, int iIdxCnt, D3D11_USAGE eIdxUsg, DXGI_FORMAT eFmt)
+{
+	m_ePrimitive = eTop;
+
+	m_tVB.iSize = iVtxSz;
+	m_tVB.iCount = iVtxCnt;
+	m_tVB.eUsage = eVtxUsg;
+
+	D3D11_BUFFER_DESC tDesc = {};
+
+	tDesc.ByteWidth = m_tVB.iSize * m_tVB.iCount;
+	tDesc.Usage = eVtxUsg;
+	tDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER | D3D11_BIND_STREAM_OUTPUT;
+	tDesc.CPUAccessFlags = 0;
+
+	D3D11_SUBRESOURCE_DATA tData = {};
+
+	tData.pSysMem = pVtxData;
+
+	if (FAILED(DEVICE->CreateBuffer(&tDesc, &tData, &m_tVB.pBuffer)))
+		return false;
+
+	return true;
+}
+
 void CMesh::Render(float fTime)
 {
 }
 
 void CMesh::RenderInstancing(void* pData, int iCount, int iSize)
+{
+}
+
+void CMesh::RenderParticle(int iCount)
 {
 }
 
@@ -83,13 +99,6 @@ void CMesh::Save(FILE* pFile)
 
 	fwrite(&m_tMax, sizeof(Vector3), 1, pFile);
 	fwrite(&m_tMin, sizeof(Vector3), 1, pFile);
-
-	int iLength = (int)m_pMaterial->GetName().length();
-
-	fwrite(&iLength, 4, 1, pFile);
-	fwrite(m_pMaterial->GetName().c_str(), 1, iLength, pFile);
-
-	m_pMaterial->Save(pFile);
 }
 
 void CMesh::Load(FILE* pFile)
@@ -99,17 +108,4 @@ void CMesh::Load(FILE* pFile)
 	fread(&m_tMax, sizeof(Vector3), 1, pFile);
 	fread(&m_tMin, sizeof(Vector3), 1, pFile);
 
-	int iLength = 0;
-	char strTag[256] = {};
-
-	fread(&iLength, 4, 1, pFile);
-	fread(strTag, 1, iLength, pFile);
-
-	CMaterial* pMat = GET_SINGLE(CResourceManager)->CreateMaterial(strTag);
-
-	pMat->Load(pFile);
-
-	SetMaterial(pMat);
-
-	SAFE_RELEASE(pMat);
 }

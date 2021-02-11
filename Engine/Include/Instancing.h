@@ -21,6 +21,7 @@ private:
 	class CUIFont*		m_pFont;
 	std::vector<class CSceneComponent*>		m_vecCom;
 	std::vector<class CRenderState*>	m_vecState;
+	class CRenderer*	m_pRenderer;
 
 public:
 	void SetLayer(class CLayer* pLayer);
@@ -28,6 +29,7 @@ public:
 	void AddCom(class CSceneComponent* pCom);
 	const std::vector<class CSceneComponent*>* GetComs()	const;
 	void AddState(const std::string& strKey);
+	void AddState(class CRenderState* pState);
 
 public:
 	bool Init(CMesh* pMesh, CMaterial* pMtrl, int iCount , int iSize);

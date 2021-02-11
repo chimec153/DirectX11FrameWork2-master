@@ -21,7 +21,7 @@ private:
 	bool						m_bAni;
 
 public:
-	void CreateTile(int x, int y, const Vector3& vSize, const Vector2& vStart, TILE_TYPE eType);
+	void CreateTile(int x, int y, const Vector3& vSize, const Vector2& vStart, const Vector3& vPivot, TILE_TYPE eType);
 	int GetIndex(int x, int y)	const;
 	int GetIndex(const Vector2& vPos)	const;
 	void SetTileTexture(const std::string& strKey);
@@ -36,6 +36,8 @@ public:
 	class CTile* GetTile(const Vector2& vPos)	const;
 	class CTile* GetTile(int x, int y)	const;
 	class CTile* GetTile(int idx)	const;
+	void AddTileRenderState(const std::string& strKey);
+	void AddAnim(const std::vector<int>& vecFrame,float fTime);
 
 public:
 	virtual bool Init();

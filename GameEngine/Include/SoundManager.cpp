@@ -29,6 +29,11 @@ bool CSoundManager::Init()
 	return true;
 }
 
+void CSoundManager::Update(float fTime)
+{
+	m_pSystem->update();
+}
+
 FMOD::System* CSoundManager::GetSystem() const
 {
 	return m_pSystem;
@@ -94,6 +99,14 @@ void CSoundManager::Stop(const std::string& strKey)
 		return;
 
 	m_vecChannel[(int)pInfo->eType]->stop();
+}
+
+void CSoundManager::Stop(SOUND_TYPE eType)
+{
+	if (m_vecChannel[(int)eType])
+	{
+		m_vecChannel[(int)eType]->stop();
+	}
 }
 
 PSOUNDINFO CSoundManager::FindSound(const std::string& strKey)

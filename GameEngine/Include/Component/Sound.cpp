@@ -10,7 +10,9 @@ CSound::CSound()	:
 	m_fMax(1.f),
 	m_fMin(0.f),
 	m_fMaxVol(1.f),
-	m_fMinVol(0.f)
+	m_fMinVol(0.f),
+	m_bFade(false),
+	m_bIn(false)
 {
 	m_eSceneComponentClassType = SCENECOMPONENT_CLASS_TYPE::SOUND;
 }
@@ -28,7 +30,7 @@ CSound::CSound(const CSound& snd)	:
 
 CSound::~CSound()
 {
-	Stop();
+	//Stop();
 }
 
 void CSound::SetVol(float fVol)
@@ -55,24 +57,42 @@ void CSound::Play(float fTime)
 {
 	if (m_pSound)
 	{
+		FMOD_RESULT hr;
 		if (m_pSound->eType == SOUND_TYPE::BGM)
 		{
 			FMOD::System* pSystem = GET_SINGLE(CSoundManager)->GetSystem();
 
-			FMOD_RESULT hr = pSystem->playSound(m_pSound->pSound, nullptr, true, &m_pSound->pChannel);
+			hr = pSystem->playSound(m_pSound->pSound, nullptr, true, &m_pSound->pChannel);
 
 			m_pSound->pChannel->setVolume(m_pSound->fVol);
 			m_pSound->pChannel->setPaused(false);
+#ifdef _DEBUG
+			std::cout << "BGM Volume: " << (int)(m_pSound->fVol * 100.f);
+#endif
 		}
 
 		else
 		{
 			FMOD::System* pSystem = GET_SINGLE(CSoundManager)->GetSystem();
 
-			FMOD_RESULT hr = pSystem->playSound(m_pSound->pSound, nullptr, false, &m_pSound->pChannel);
+			hr = pSystem->playSound(m_pSound->pSound, nullptr, false, &m_pSound->pChannel);
 
 			m_pSound->pChannel->setVolume(m_pSound->fVol);
+#ifdef _DEBUG
+			std::cout << "Effect Volume: " << (int)(m_pSound->fVol *100.f);
+#endif
 		}
+#ifdef _DEBUG
+		if (hr == FMOD_OK)
+		{
+			std::cout << "\tPlay: " << m_strName << "\tOK"<<std::endl;
+		}
+
+		else
+		{
+			std::cout << "\tPlay: " << m_strName << "\tERROR" << std::endl;
+		}
+#endif
 	}
 }
 
@@ -80,7 +100,22 @@ void CSound::Stop()
 {
 	if (m_pSound)
 	{
-		m_pSound->pChannel->stop();
+		if (m_pSound->pChannel)
+		{
+			FMOD_RESULT tResult = m_pSound->pChannel->stop();
+#ifdef _DEBUG
+			if (tResult == FMOD_RESULT::FMOD_OK)
+			{
+				OutputDebugStringA("FMOD_STOP_OK");
+				std::cout << "Stop: " << m_strName << std::endl;
+			}
+
+			else
+			{
+				OutputDebugStringA("FMOD_STOP_FAILED");
+			}
+#endif
+		}
 	}
 }
 
@@ -109,6 +144,19 @@ void CSound::SetMaxVol(float fMax)
 void CSound::SetMinVol(float fMin)
 {
 	m_fMinVol = fMin;
+}
+
+void CSound::SetFade(bool bFade, bool bIn)
+{
+	m_bFade = bFade;
+	m_bIn = bIn;
+}
+
+void CSound::SetSoundAndPlay(const std::string& strKey)
+{
+	SetSound(strKey);
+	SetVol(1.f);
+	Play(0.f);
 }
 
 bool CSound::Init()
@@ -161,6 +209,37 @@ void CSound::Update(float fTime)
 			SetVol(fVol);
 		}			
 		//SetVol(10000.f / fDst / fDst);
+	}
+
+	else if (m_bFade && m_pSound)
+	{
+		if (m_bIn)
+		{
+			if (m_pSound->fVol < m_fMaxVol)
+			{
+				SetVol(m_pSound->fVol + fTime);
+			}
+
+			else
+			{
+				SetVol(m_fMaxVol);
+				m_bFade = false;
+			}
+		}
+
+		else
+		{
+			if (m_pSound->fVol > m_fMinVol)
+			{
+				SetVol(m_pSound->fVol - fTime);
+			}
+
+			else
+			{
+				m_bFade = false;
+				Stop();
+			}
+		}
 	}
 }
 

@@ -10,7 +10,7 @@ CCameraManager::CCameraManager()
 {
 	m_pMainCam = new CCamera;
 
-	m_pMainCam->SetCameraType(CAMERA_TYPE::CT_3D);
+	m_pMainCam->SetCameraType(CAMERA_TYPE::CT_2D);
 
 	m_pUICam = new CCamera;
 
@@ -112,6 +112,7 @@ void CCameraManager::ChangeScene()
 	CObj* pObj = GET_SINGLE(CSceneManager)->GetScene()->GetGameMode()->GetPlayer();
 
 	m_pMainCam->SetTarget(pObj);
+	m_pMainCam->SetZoom(false);
 
 	SAFE_RELEASE(pObj);
 }

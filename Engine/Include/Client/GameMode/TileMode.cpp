@@ -20,24 +20,18 @@
 #include "../UI/Missile.h"
 #include "../Object/Bullet.h"
 #include "SoundManager.h"
+#include "Component/Renderer.h"
+#include "Component/Mesh2DComponent.h"
+#include "Device.h"
+#include "Component/Particle.h"
+#include "../Object/Soul.h"
+#include "../Object/Arrow.h"
+#include "../Object/Bow.h"
+#include "../Object/BrainFreeze.h"
+#include "../Object/Eyecube.h"
+#include "Engine.h"
 
 CTileMode::CTileMode() :
-	m_vTileSize(),
-	m_iMapWidth(0),
-	m_iMapHeight(0),
-	m_eTexType(TILE_TEX_TYPE::TEX),
-	m_pTag(nullptr),
-	m_iZ(0),
-	m_bAni(false),
-	m_bTileEnable(true),
-	m_fTileOpacity(1.f),
-	m_vPos(),
-	m_vSpawn(),
-	m_bGlobal(false),
-	m_fMaxRange(0.f),
-	m_fMinRange(0.f),
-	m_fMaxVol(0.f),
-	m_fMinVol(0.f),
 	m_fShakeTime(0.f),
 	m_fShakeLimit(0.25f),
 	m_vPrevCamPos(),
@@ -45,27 +39,50 @@ CTileMode::CTileMode() :
 	m_fAmplitude(5.f),
 	m_fDist(0.f),
 	m_fSpeed(150.f),
+	m_fFade(0.f),
 	m_bLock(false),
-	m_pCam(nullptr)
+	m_pCam(nullptr),
+	m_pFadeObj(nullptr),
+	m_pFade(nullptr),
+	m_fFadeStart(0.f),
+	m_fFadeEnd(0.f),
+	m_fFadeScale(0.f),
+	m_bFade(false),
+	m_bHub(false)
 {
 	m_vDoorDir = Vector3(0.f, -1.f, 0.f);
-	memset(m_pWidth, 0, 4 * (int)TILE_TEX_TYPE::END);
-	memset(m_pHeight, 0, 4 * (int)TILE_TEX_TYPE::END);
-	memset(m_pTex, 0, sizeof(char*) * (int)TILE_TEX_TYPE::END);
 }
 
 CTileMode::~CTileMode()
 {
 	SAFE_RELEASE(m_pCam);
+	SAFE_RELEASE(m_pFadeObj);
+	SAFE_RELEASE(m_pFade);
+}
+
+void CTileMode::Lock(bool bLock)
+{
+	m_bLock = bLock;
+
+	CLayer* pLayer = m_pScene->FindLayer("Default");
+
+	if (pLayer)
+	{
+
+		CObj* pObj = pLayer->FindObj("internal");
+
+		if (pObj)
+		{
+			pObj->Enable(!m_bLock);
+
+			pObj->Release();
+		}
+	}
 }
 
 bool CTileMode::Init()
 {
 	GET_SINGLE(CSoundManager)->Stop("Hub1");
-
-	CColossus* pCol = CScene::CreateProtoObj<CColossus>("boss_colossus", m_pScene, m_pScene->GetSceneType());
-
-	SAFE_RELEASE(pCol);
 
 	m_pScene->SortInstText();
 
@@ -76,6 +93,16 @@ bool CTileMode::Init()
 	pPlayer->SetWorldPos(488.f, 500.f, 0.f);
 
 	SetPlayer(pPlayer);
+
+	CBow* pBow = m_pScene->CreateObject<CBow>("Bow", pLayer);
+
+	CArrow* pArrow = m_pScene->CreateObject<CArrow>("Arrow", pLayer);
+
+	pPlayer->SetBow(pBow);
+	pPlayer->SetArrow(pArrow);
+
+	SAFE_RELEASE(pBow);
+	SAFE_RELEASE(pArrow);
 
 	SAFE_RELEASE(pPlayer);
 
@@ -122,6 +149,10 @@ bool CTileMode::Init()
 
 	SAFE_RELEASE(pWaterEffect);
 
+	CSoul* pSoulEffect = CScene::CreateProtoObj<CSoul>("Soul", m_pScene, m_pScene->GetSceneType());
+
+	SAFE_RELEASE(pSoulEffect);
+
 	CMissile* pMissile = CScene::CreateProtoObj<CMissile>("Missile", m_pScene, m_pScene->GetSceneType());
 
 	SAFE_RELEASE(pMissile);
@@ -131,6 +162,27 @@ bool CTileMode::Init()
 	SAFE_RELEASE(pBullet);
 
 	m_pCam = GET_SINGLE(CCameraManager)->GetMainCam();
+
+	m_pFadeObj = m_pScene->CreateObject<CObj>("Fade", m_pScene->FindLayer("Fore"));
+
+	m_pFade = m_pFadeObj->CreateComponent<CMesh2DComponent>("FadeCom", m_pScene->FindLayer("Speacial"));
+
+	Resolution tRS = RESOLUTION;
+
+	m_pFade->SetWorldScale((float)tRS.iWidth, (float)tRS.iHeight, 0.f);
+	m_pFade->SetPivot(0.5f, 0.5f, 0.f);
+	m_pFade->SetTexture(REGISTER_TYPE::RT_DIF, "util");
+	m_pFade->SetWorldPos(0.f, 0.f, -520.f);
+	m_pFade->AddRenderState("DepthNoWrite");
+	m_pFade->AddRenderState("NoCullBack");
+
+	CMaterial* pFadeMtrl = m_pFade->GetMaterial();
+
+	pFadeMtrl->SetDiffuseColor(0.f, 0.f, 0.f, 0.f);
+
+	SAFE_RELEASE(pFadeMtrl);
+
+	m_pFadeObj->SetRootComponent(m_pFade);
 
 	return true;
 }
@@ -167,6 +219,28 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 	TiXmlHandle hRoot(0);
 	TiXmlElement* pSubElem = pElem;
 	TiXmlAttribute* pAttrib = NULL;
+
+	static Vector2 m_vTileSize = {};
+	static int m_pWidth[(int)TILE_TEX_TYPE::END] = {};
+	static int m_pHeight[(int)TILE_TEX_TYPE::END] = {};
+	static const char* m_pTex[(int)TILE_TEX_TYPE::END] = {};
+	static int m_iMapWidth = 0;
+	static int m_iMapHeight = 0;
+	static TILE_TEX_TYPE m_eTexType = TILE_TEX_TYPE::TEX;
+	static const char* m_pTag = nullptr;
+	static int m_iZ = 0;
+	static bool m_bAni = false;
+	static bool m_bTileEnable = true;
+	static float m_fTileOpacity = 1.f;
+	static Vector3 m_vSpawn = {};
+	static Vector3 m_vPos = {};
+	static bool m_bGlobal = false;
+	static float m_fMaxRange = 0.f;
+	static float m_fMinRange = 0.f;
+	static float m_fMaxVol = 0.f;
+	static float m_fMinVol = 0.f;
+	static std::vector<class CTileMap*>	m_vecMap;
+	static int		m_iLayer = 0;;
 
 	hRoot = TiXmlHandle(pSubElem);
 	pSubElem = hRoot.FirstChildElement().Element();
@@ -253,7 +327,6 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 			pAttrib = pSubElem->FirstAttribute();
 			while (pAttrib)
 			{
-
 				strAttrib = pAttrib->Name();
 				pText = pAttrib->Value();
 
@@ -264,7 +337,22 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 
 				else if (strcmp(strAttrib, "height") == 0)
 				{
-					m_pHeight[(int)m_eTexType] = atoi(pText);
+					char strDebug[32] = {};
+
+					sprintf_s(strDebug, "Type: %d\n", m_eTexType);
+
+					OutputDebugStringA(strDebug);
+
+					if ((int)m_eTexType < 2)
+					{
+						m_pHeight[(int)m_eTexType] = atoi(pText);
+					}
+
+					else 
+					{
+						break;
+					}
+
 					m_eTexType = TILE_TEX_TYPE((int)m_eTexType + 1);
 				}
 
@@ -337,6 +425,13 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 				else if (strcmp(pText, "layer") == 0)
 				{
 					m_eTexType = TILE_TEX_TYPE::TEX;
+
+					pAttrib = pAttrib->Next();
+
+					strAttrib = pAttrib->Name();
+					pText = pAttrib->Value();
+
+					m_iLayer = atoi(pText);
 				}
 
 				else if (strcmp(pText, "collide") == 0)
@@ -369,7 +464,7 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 				{
 					const char* pTile = pSubElem->GetText();
 
-					m_pScene->CreateLayer(m_pTag, m_iZ);
+					m_pScene->CreateLayer(m_pTag, m_iLayer);
 
 					CLayer* pLayer = m_pScene->FindLayer(m_pTag);
 
@@ -377,8 +472,10 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 
 					CTileMap* pMap = pMapObj->CreateComponent<CTileMap>(m_pTag, pLayer);
 
+					pMap->SetWorldPos(0.f, 0.f, (float)m_iZ);
+
 					pMap->CreateTile(m_iMapWidth, m_iMapHeight,
-						Vector3(m_vTileSize.x, m_vTileSize.y, 0.f), Vector2(0.f, 0.f), TILE_TYPE::RECT);
+						Vector3(m_vTileSize.x, m_vTileSize.y, 0.f), Vector2(0.f, 0.f), Vector3(1.f, 1.f,0.f), TILE_TYPE::RECT);
 
 					if (m_eTexType == TILE_TEX_TYPE::TEX)
 					{
@@ -405,6 +502,10 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 					pMap->SetTileOpacity(m_fTileOpacity);
 
 					pMapObj->SetRootComponent(pMap);
+
+					pMap->AddRenderState("DepthNoWrite");
+
+					m_vecMap.push_back(pMap);
 
 					m_bTileEnable = true;
 					m_fTileOpacity = 1.f;
@@ -483,7 +584,25 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 
 						CObj* pObj = nullptr;
 
-						if (strcmp(m_pTag, "boss_colossus")==0)
+						if (strcmp(m_pTag, "boss_colossus") == 0)
+						{
+							pObj = m_pScene->CreateObject<CColossus>(m_pTag, pLayer, m_pScene->GetSceneType());
+						}
+
+						else if (strcmp(m_pTag, "boss_eyecube") == 0)
+						{
+							pObj = m_pScene->CreateObject<CEyecube>(m_pTag, pLayer, m_pScene->GetSceneType());
+							pObj->SetWorldPos(0.f, 0.f, -100.f);
+							//pObj->SetWorldPos(480.f, 589.f, -100.f);
+						}
+
+						else if (strcmp(m_pTag, "boss_brainfreeze") == 0)
+						{
+							pObj = m_pScene->CreateObject<CBrainFreeze>(m_pTag, pLayer, m_pScene->GetSceneType());
+							//pObj->AddWorldPos(8.f, 8.f, 0.f);
+						}
+
+						else if (strcmp(m_pTag, "4292") == 0)
 						{
 							pObj = m_pScene->CreateCloneObj(m_pTag, m_pTag, pLayer, m_pScene->GetSceneType());
 						}
@@ -493,7 +612,7 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 							pObj = m_pScene->CreateObject<CObj>(m_pTag, pLayer);
 						}
 
-						pObj->SetWorldPos(Vector3(m_vPos.x, m_iMapHeight * m_vTileSize.y - m_vPos.y, m_vPos.z));
+						pObj->AddWorldPos(Vector3(m_vPos.x, m_iMapHeight * m_vTileSize.y - m_vPos.y, m_vPos.z));
 
 						stackObj.push(pObj);
 
@@ -610,7 +729,7 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 								pSnd->SetMinVol(m_fMinVol);
 								pSnd->SetMax(m_fMaxRange);
 								pSnd->SetMin(m_fMinRange);
-								//pSnd->Play(0.f);
+								pSnd->Play(0.f);
 
 								if (m_bGlobal)
 								{
@@ -622,6 +741,7 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 									pSnd->SetSceneComType(SCENE_COMPONENT_TYPE::SCT_2D);
 								}
 
+								
 								pObj->SetRootComponent(pSnd);
 								pSnd->SetWorldPos(Vector3(m_vPos.x, m_iMapHeight * m_vTileSize.y - m_vPos.y, 0.f));
 
@@ -641,7 +761,7 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 
 								CObj* pObj = stackObj.top();
 
-								Vector3 vPos = pObj->GetWorldPos() + Vector3(m_vTileSize.x /2.f, m_vTileSize.y /2.f, 0.f);
+								Vector3 vPos = pObj->GetWorldPos();
 
 								CColliderRect* pRC = pObj->CreateComponent<CColliderRect>(pText, pObj->GetLayer());
 
@@ -649,9 +769,26 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 
 								pRC->SetExtent(48.f, 48.f);
 
-								pRC->SetWorldPos(vPos);
-
 								pRC->SetCallBack(COLLISION_STATE::INIT, ColInit);
+
+								if (pObj->GetName() == "internal")
+								{
+									CSpriteComponent* pGrad = pObj->CreateComponent<CSpriteComponent>("gradient", m_pScene->FindLayer("Fore"));
+
+									pGrad->SetWorldScale(48.f, 48.f, 0.f);
+									pGrad->CreateSprite("Idle", "DoorGradient", LOOP_OPTION::LOOP);
+									pGrad->SetWorldPos(vPos);
+									pGrad->SetPivot(0.5f, 0.5f, 0.f);
+									pGrad->AddRenderState("DepthNoWrite");
+
+									pObj->SetRootComponent(pGrad);
+
+									pGrad->AddChild(pRC);
+
+									SAFE_RELEASE(pGrad);
+								}
+
+								pRC->SetWorldPos(vPos);
 
 								SAFE_RELEASE(pRC);
 							}
@@ -689,7 +826,12 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 
 									pObj->SetRootComponent(pSnd);
 									pSnd->SetWorldPos(m_vPos);
-									pSnd->Play(0.f);
+
+									if (m_bHub)
+									{
+										pSnd->SetVol(1.f);
+										pSnd->Play(0.f);
+									}
 
 									SAFE_RELEASE(pSnd);
 
@@ -725,6 +867,105 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 				stackObj.pop();
 
 				SAFE_RELEASE(pObj);
+			}
+		}
+
+		else if (strcmp(pNode, "properties") == 0)
+		{
+			TiXmlElement* pSubChild = pSubElem->FirstChildElement();
+
+			pAttrib = pSubChild->FirstAttribute();
+
+			while (pAttrib)
+			{
+				strAttrib = pAttrib->Name();
+				pText = pAttrib->Value();
+
+				if (strcmp(pText, "ambience") == 0)
+				{
+					pAttrib = pAttrib->Next();
+
+					strAttrib = pAttrib->Name();
+					pText = pAttrib->Value();
+
+					char strName[_MAX_FNAME] = {};
+
+					_splitpath_s(pText, nullptr, 0, nullptr, 0, strName, _MAX_FNAME, nullptr, 0);
+
+					char pPath[MAX_PATH] = {};
+
+					strcat_s(pPath, MAX_PATH, "SOUND\\SFX\\AMBIENCE\\");
+
+					strcat_s(pPath, MAX_PATH, pText);
+
+					GET_SINGLE(CSoundManager)->LoadSound(strName, SOUND_TYPE::BGM, pPath, DATA_PATH);
+
+					CLayer* pLayer = m_pScene->FindLayer("Default");
+
+					CObj* pObj = m_pScene->CreateObject<CObj>(pText, pLayer);
+
+					CSound* pSnd = pObj->CreateComponent<CSound>(strName, pLayer);
+
+					pSnd->SetSound(strName);
+					pSnd->Play(0.f);
+					pSnd->SetSceneComType(SCENE_COMPONENT_TYPE::SCT_UI);
+
+					pObj->SetRootComponent(pSnd);
+
+					SAFE_RELEASE(pSnd);
+
+					SAFE_RELEASE(pObj);
+				}
+
+				pAttrib = pAttrib->Next();
+			}
+		}
+
+		else if (strcmp(pNode, "anim") == 0)
+		{
+			float fSpeed = 0.f;
+
+			pAttrib = pSubElem->FirstAttribute();
+
+			while (pAttrib)
+			{
+				strAttrib = pAttrib->Name();
+				pText = pAttrib->Value();
+
+				if (strcmp(strAttrib, "speed") == 0)
+				{
+					fSpeed = (float)atof(pText);
+				}
+
+				else if (strcmp(strAttrib, "name") == 0)
+				{
+				}
+
+				pAttrib = pAttrib->Next();
+			}
+
+			TiXmlElement* pSubChild = pSubElem->FirstChildElement();
+
+			const char* pText = pSubChild->GetText();
+
+			char* pContext = nullptr;
+
+			std::vector<int>	vecFrame;
+
+			char* pResult = strtok_s((char*)pText, ",", &pContext);
+
+			while (pResult)
+			{
+				vecFrame.push_back(atoi(pResult));
+
+				pResult = strtok_s(nullptr, ",", &pContext);
+			}
+
+			size_t iSz = m_vecMap.size();
+
+			for (size_t i = 0; i < iSz; ++i)
+			{
+				m_vecMap[i]->AddAnim(vecFrame, fSpeed);
 			}
 		}
 
@@ -775,11 +1016,158 @@ void CTileMode::Update(float fTime)
 
 		if (m_fDist >= m_fAmplitude)
 		{
-			m_iShake *= -1.f;
+			m_iShake *= -1;
 
 			m_fDist -= m_fAmplitude;
 		}
 	}
+
+	if (m_bFade)
+	{
+		m_fFade += m_fFadeScale * fTime;
+
+		if(abs(m_fFade - m_fFadeStart) >= abs(m_fFadeEnd - m_fFadeStart) )
+		{
+			m_fFade = m_fFadeEnd;
+			m_bFade = false;
+		}
+
+		CMaterial* pMtrl = m_pFade->GetMaterial();
+
+		Vector4 vDif = pMtrl->GetDif();
+
+		pMtrl->SetDiffuseColor(vDif.x, vDif.y, vDif.z, m_fFade);
+
+		SAFE_RELEASE(pMtrl);
+	}
+}
+
+void CTileMode::PreRender(float fTime)
+{
+	CGameMode::PreRender(fTime);
+
+	if (GET_SINGLE(CEngine)->IsImgui())
+	{
+		SpawnFade();
+
+		if (m_pPlayer)
+		{
+			((CPlayer*)m_pPlayer)->SpawnWindow();
+		}
+	}
+}
+
+void CTileMode::FadeOut(float fTime)
+{
+	CMaterial* pMtrl = m_pFade->GetMaterial();
+
+	Vector4 vDif = pMtrl->GetDif();
+
+	if (vDif.w + fTime >= 1.f)
+	{
+		pMtrl->SetDiffuseColor(vDif.x, vDif.y, vDif.z, 1.f);
+	}
+
+	else
+	{
+		pMtrl->SetDiffuseColor(vDif.x, vDif.y, vDif.z, vDif.w + fTime);
+	}
+
+	Vector3 vPos = m_pPlayer->GetWorldPos();
+	m_pFade->SetWorldPos(vPos.x, vPos.y, -520.f);	
+
+	SAFE_RELEASE(pMtrl);
+}
+
+void CTileMode::FadeIn(float fTime)
+{
+	CMaterial* pMtrl = m_pFade->GetMaterial();
+
+	Vector4 vDif = pMtrl->GetDif();
+
+	if (vDif.w - fTime < 0.f)
+	{
+		pMtrl->SetDiffuseColor(vDif.x, vDif.y, vDif.z, 0.f);
+	}
+
+	else
+	{
+		pMtrl->SetDiffuseColor(vDif.x, vDif.y, vDif.z, vDif.w - fTime);
+	}
+
+	Vector3 vPos = m_pPlayer->GetWorldPos();
+	m_pFade->SetWorldPos(vPos.x, vPos.y, -520.f);
+
+	SAFE_RELEASE(pMtrl);
+}
+
+void CTileMode::SetFade(float fStart, float fEnd, float fScale)
+{
+	m_fFadeStart = fStart;
+	m_fFadeEnd = fEnd;
+	m_fFadeScale = fScale;
+	m_bFade = true;
+	m_fFade = m_fFadeStart;
+
+	CMaterial* pMtrl = m_pFade->GetMaterial();
+
+	Vector4 vDif = pMtrl->GetDif();
+
+	pMtrl->SetDiffuseColor(vDif.x, vDif.y, vDif.z, m_fFadeStart);
+
+	SAFE_RELEASE(pMtrl);
+
+	Vector3 vPos = {};
+
+	if (m_pPlayer)
+	{
+		vPos = m_pPlayer->GetWorldPos();
+	}
+
+	else
+	{
+		CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
+
+		Resolution tRS = pCam->GetResolution();
+
+		vPos = pCam->GetWorldPos() + pCam->GetPivot() * Vector3(0.f, (float)tRS.iHeight, 0.f);
+
+		SAFE_RELEASE(pCam);
+	}
+
+	m_pFade->SetWorldPos(vPos.x, vPos.y, -520.f);
+}
+
+void CTileMode::SetFadeColor(float r, float g, float b)
+{
+	CMaterial* pMtrl = m_pFade->GetMaterial();
+
+	Vector4 vDif = pMtrl->GetDif();
+
+	pMtrl->SetDiffuseColor(r, g, b, vDif.w);
+
+	SAFE_RELEASE(pMtrl);
+}
+
+void CTileMode::SpawnFade()
+{	
+	if (ImGui::Begin("Fade"))
+	{
+		CMaterial* pMtrl = m_pFade->GetMaterial();
+
+		Vector4 vColor = pMtrl->GetDif();
+
+		ImGui::Text("Material");
+		ImGui::ColorEdit4("Diffuse", &vColor.x);
+		//ImGui::SliderFloat4("Dif", &vColor.x, 0.f, 1.f);
+
+		pMtrl->SetDiffuseColor(vColor);
+
+		SAFE_RELEASE(pMtrl);
+	}
+
+	ImGui::End();
+
 }
 
 void ColInit(CCollider* pSrc, CCollider* pDst, float fTime)

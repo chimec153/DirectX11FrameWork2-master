@@ -6,7 +6,9 @@
 #include "DetailDlg.h"
 #include "Object/Obj.h"
 #include "Component/SceneComponent.h"
-
+#include "Component/Renderer.h"
+#include "Render/RenderState.h"
+#include "Layer.h"
 
 // CDetailDlg
 #undef new
@@ -15,6 +17,9 @@ IMPLEMENT_DYNCREATE(CDetailDlg, CFormView)
 CDetailDlg::CDetailDlg()	:
 	CFormView(IDD_DETAIL),
 	m_pObj(nullptr)
+	, m_strScene(_T(""))
+	, m_strLayer(_T(""))
+	, m_iZOrder(0)
 {
 
 }
@@ -34,6 +39,10 @@ BEGIN_MESSAGE_MAP(CDetailDlg, CFormView)
 	ON_EN_CHANGE(IDC_EDIT_SCALEX, &CDetailDlg::OnEnChangeEditScalex)
 	ON_EN_CHANGE(IDC_EDIT_SCALEY, &CDetailDlg::OnEnChangeEditScaley)
 	ON_EN_CHANGE(IDC_EDIT_SCALEZ, &CDetailDlg::OnEnChangeEditScalez)
+	ON_CBN_SELCHANGE(IDC_COMBO_STATE, &CDetailDlg::OnCbnSelchangeComboState)
+	ON_EN_CHANGE(IDC_EDIT_SCENE, &CDetailDlg::OnEnChangeEditScene)
+	ON_EN_CHANGE(IDC_EDIT_LAYER, &CDetailDlg::OnEnChangeEditLayer)
+	ON_EN_CHANGE(IDC_EDIT_ZORDER, &CDetailDlg::OnEnChangeEditZorder)
 END_MESSAGE_MAP()
 
 
@@ -71,7 +80,7 @@ void CDetailDlg::SetObj(CObj* pObj)
 	m_Component.DeleteAllItems();
 	m_vecItem.clear();
 
-	m_Root = m_Component.InsertItem(TEXT("Root"), 0, 0, TVI_ROOT, TVI_LAST);
+	//m_Root = m_Component.InsertItem(TEXT("Root"), 0, 0, TVI_ROOT, TVI_LAST);
 
 	m_pObj = pObj;
 
@@ -95,7 +104,7 @@ void CDetailDlg::SetObj(CObj* pObj)
 		{
 			TreeItem tItem;
 
-			tItem.hItem = m_Component.InsertItem(strName, 0, 0, m_Root, TVI_LAST);
+			tItem.hItem = m_Component.InsertItem(strName, 0, 0, TVI_ROOT, TVI_LAST);
 			tItem.tTag = strName;
 
 			m_vecItem.push_back(tItem);
@@ -147,6 +156,34 @@ void CDetailDlg::Update(float fTime)
 
 		if (pCom)
 		{
+			CRenderer* pRenderer = pCom->GetRenderer();
+
+			std::vector<CRenderState*> vecState = pRenderer->GetVecRenderState();
+
+			SAFE_RELEASE(pRenderer);
+
+			size_t iSz = vecState.size();
+
+			m_ComboStates.ResetContent();
+
+			for (size_t i = 0; i < iSz; ++i)
+			{
+				CString strTag = CA2CT(vecState[i]->GetName().c_str());
+
+				m_ComboStates.InsertString(i, strTag);
+			}
+
+			//m_strScene = CA2CT(_itoa_s((int)pCom->GetScene(), 8));
+
+			CLayer* pLayer = pCom->GetLayer();
+
+			if (pLayer)
+			{
+				m_strLayer = CA2CT(pLayer->GetName().c_str());
+
+				m_iZOrder = pLayer->GetZOrder();
+			}
+
 			m_vPos = pCom->GetWorldPos();
 			m_vRot = pCom->GetWorldRot();
 			m_vScale = pCom->GetWorldScale();
@@ -173,6 +210,10 @@ void CDetailDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT_SCALEX, m_vScale.x);
 	DDX_Text(pDX, IDC_EDIT_SCALEY, m_vScale.y);
 	DDX_Text(pDX, IDC_EDIT_SCALEZ, m_vScale.z);
+	DDX_Control(pDX, IDC_COMBO_STATE, m_ComboStates);
+	DDX_Text(pDX, IDC_EDIT_SCENE, m_strScene);
+	DDX_Text(pDX, IDC_EDIT_LAYER, m_strLayer);
+	DDX_Text(pDX, IDC_EDIT_ZORDER, m_iZOrder);
 }
 
 
@@ -394,4 +435,25 @@ void CDetailDlg::OnEnChangeEditScalez()
 
 		SAFE_RELEASE(pCom);
 	}
+}
+
+
+
+void CDetailDlg::OnCbnSelchangeComboState()
+{
+
+}
+
+void CDetailDlg::OnEnChangeEditScene()
+{
+}
+
+
+void CDetailDlg::OnEnChangeEditLayer()
+{
+}
+
+
+void CDetailDlg::OnEnChangeEditZorder()
+{
 }

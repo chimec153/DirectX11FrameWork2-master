@@ -15,7 +15,7 @@ CUIButton::CUIButton()	:
 	m_pSnd(nullptr)
 {
 	m_vecInfo.resize((int)BUTTON_STATE::END);
-	m_eSceneComponentClassType = SCENECOMPONENT_CLASS_TYPE::SCT_COLLIDERRECT;
+	m_eSceneComponentClassType = SCENECOMPONENT_CLASS_TYPE::UI_BUTTON;
 
 	m_strSnd[(int)BUTTON_STATE::OFF] = "";
 	m_strSnd[(int)BUTTON_STATE::ON] = "";

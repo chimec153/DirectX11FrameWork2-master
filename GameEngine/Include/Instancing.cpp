@@ -31,6 +31,7 @@ CInstancing::~CInstancing()
 	SAFE_RELEASE(m_pMesh);
 	SAFE_RELEASE(m_pMaterial);
 	SAFE_RELEASE(m_pFont);
+	SAFE_RELEASE_VECLIST(m_vecState);
 }
 
 void CInstancing::SetLayer(CLayer* pLayer)
@@ -59,6 +60,22 @@ void CInstancing::AddState(const std::string& strKey)
 
 	if (!pState)
 		return;
+
+	m_vecState.push_back(pState);
+}
+
+void CInstancing::AddState(CRenderState* pState)
+{
+	std::vector<CRenderState*>::iterator iter = m_vecState.begin();
+	std::vector<CRenderState*>::iterator iterEnd = m_vecState.begin();
+
+	for (; iter != iterEnd; ++iter)
+	{
+		if ((*iter) == pState)
+		{
+			return;
+		}
+	}
 
 	m_vecState.push_back(pState);
 }

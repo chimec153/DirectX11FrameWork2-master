@@ -12,9 +12,16 @@ CCamera::CCamera()	:
 	m_fMaxRange(0.f),
 	m_fMinRange(0.f),
 	m_vPos(),
-	m_fZoom(-100.f)
+	m_fZoom(-100.f),
+	m_matVP(),
+	m_tRS()
 {
-	SetCameraType(CAMERA_TYPE::CT_3D);
+	m_tRS = RESOLUTION;
+	m_tRect.fL = 0.f;
+	m_tRect.fR = 1.f;
+	m_tRect.fB = 0.f;
+	m_tRect.fT = 1.f;
+	SetCameraType(CAMERA_TYPE::CT_2D);
 	m_eSceneComponentClassType = SCENECOMPONENT_CLASS_TYPE::SCT_CAMERA;
 }
 
@@ -25,12 +32,16 @@ CCamera::CCamera(const CCamera& cam)	:
 	, m_eType(cam.m_eType)
 	, m_fDist(cam.m_fDist)
 	, m_fAngle(cam.m_fAngle)
+	, m_bZoom(cam.m_bZoom)
 	, m_pTarget(cam.m_pTarget)
 	, m_pFocus(cam.m_pFocus)
 	, m_fMaxRange(cam.m_fMaxRange)
 	, m_fMinRange(cam.m_fMinRange)
 	, m_vPos(cam.m_vPos)
 	, m_fZoom(cam.m_fZoom)
+	, m_matVP(cam.m_matVP)
+	, m_tRS(cam.m_tRS)
+	, m_tRect(cam.m_tRect)
 {
 	if (m_pFocus)
 		m_pFocus->AddRef();
@@ -58,20 +69,18 @@ const Matrix& CCamera::GetVP() const
 
 void CCamera::SetCameraType(CAMERA_TYPE eType)
 {
-	Resolution tRS = RESOLUTION;
-
 	m_eType = eType;
 
 	switch (m_eType)
 	{
 	case CAMERA_TYPE::CT_3D:
 		m_matProj = DirectX::XMMatrixPerspectiveFovLH(DirectX::XMConvertToRadians(m_fAngle), 
-			tRS.iWidth / (float)tRS.iHeight, 0.3f, m_fDist);
+			m_tRS.iWidth / (float)m_tRS.iHeight, 0.3f, m_fDist);
 		break;
 	case CAMERA_TYPE::CT_2D:
 	case CAMERA_TYPE::CT_UI:
-		m_matProj = DirectX::XMMatrixOrthographicOffCenterLH(0.f, 
-			(float)tRS.iWidth, 0.f, (float)tRS.iHeight, 0.f, m_fDist);
+		m_matProj = DirectX::XMMatrixOrthographicOffCenterLH(m_tRect.fL * m_tRS.iWidth, m_tRect.fR * m_tRS.iWidth,
+			m_tRect.fB * m_tRS.iHeight, m_tRect.fT * m_tRS.iHeight, -1000.f, m_fDist);
 		break;	
 	}
 }
@@ -104,7 +113,17 @@ float CCamera::GetDist() const
 void CCamera::SetZoom(bool bZoom, float fZoom)
 {
 	m_bZoom = bZoom;
-	m_fZoom = fZoom;
+	m_fZoomLimit = fZoom;
+
+	if (!m_bZoom)
+	{
+		m_matProj = DirectX::XMMatrixOrthographicOffCenterLH(
+			m_tRect.fL  * m_tRS.iWidth,
+			m_tRect.fR  * m_tRS.iWidth,
+			m_tRect.fB  * m_tRS.iHeight,
+			m_tRect.fT  * m_tRS.iHeight,
+			-1000.f, m_fDist);
+	}
 }
 
 void CCamera::SetTarget(CObj* pObj)
@@ -137,6 +156,102 @@ void CCamera::SetMovePos(const Vector3 vPos)
 	m_vPos = vPos;
 }
 
+void CCamera::SetRect(float l, float r,  float b, float t )
+{
+	m_tRect.fL = l;
+	m_tRect.fR = r;
+	m_tRect.fT = t;
+	m_tRect.fB = b;
+
+	m_matProj = DirectX::XMMatrixOrthographicOffCenterLH(l * m_tRS.iWidth, r * m_tRS.iWidth,
+		b * m_tRS.iHeight, t * m_tRS.iHeight, -1000.f, m_fDist);
+}
+
+const Resolution& CCamera::GetResolution() const
+{
+	return m_tRS;
+}
+
+void CCamera::SetCallBack(void(*pFunc)(float))
+{
+	m_pCallBack = std::bind(pFunc, std::placeholders::_1);
+}
+
+void CCamera::SpawnControlWindow()
+{
+	if (ImGui::Begin("Camera"))
+	{
+		Vector3 vRot = GetWorldRot();
+		Vector3 vPos = GetWorldPos();
+
+		ImGui::Text("Position");
+		ImGui::SliderFloat("D", &m_fDist, -3000.f, 3000.f);
+		ImGui::SliderAngle("Angle", &m_fAngle, -180.f, 180.f);
+		ImGui::SliderFloat3("Pos", &vPos.x, 0.f, 10000.f);
+		ImGui::Text("Orientation");
+		ImGui::SliderAngle("X", &vRot.x, -180.f, 180.f);
+		ImGui::SliderAngle("Y", &vRot.y, -180.f, 180.f);
+		ImGui::SliderAngle("Z", &vRot.z, -180.f, 180.f);
+		ImGui::Text("Dimension");
+
+		ImGui::Selectable("2D");
+		ImGui::Selectable("3D");
+		ImGui::Selectable("UI");
+
+		if (m_eType !=CAMERA_TYPE::CT_3D)
+		{
+			ImGui::SliderFloat4("Rect", &m_tRect.fL, 0.f, 1.f);
+		}
+
+		if (m_pTarget)
+		{
+			char strTarget[64] = {};
+
+			sprintf_s(strTarget, "Target: ");
+
+			strcat_s(strTarget, m_pTarget->GetName().c_str());
+
+			ImGui::Text(strTarget);
+		}
+
+		if (m_pFocus)
+		{
+			char strTarget[64] = {};
+
+			sprintf_s(strTarget, "Focus: ");
+
+			strcat_s(strTarget, m_pFocus->GetName().c_str());
+
+			ImGui::Text(strTarget);
+
+			ImGui::SliderFloat("MaxLange", &m_fMaxRange, 0.f, 1000.f);
+			ImGui::SliderFloat("MinLange", &m_fMinRange, 0.f, 1000.f);
+		}
+
+		SetWorldPos(vPos);
+		SetWorldRot(vRot);
+
+		if (ImGui::Button("Reset"))
+		{
+			Reset();
+		}
+
+		SetCameraType(m_eType);
+	}
+	ImGui::End();
+}
+
+void CCamera::Reset()
+{
+	m_fDist = 500.f;
+	m_fAngle = 0.f;
+}
+
+const RectInfo& CCamera::GetRect() const
+{
+	return m_tRect;
+}
+
 bool CCamera::Init()
 {
 	if (!CSceneComponent::Init())
@@ -160,13 +275,35 @@ void CCamera::Update(float fTime)
 
 	if (m_bZoom)
 	{
-		Resolution tRS = RESOLUTION;
+		if (m_fZoomLimit > m_fZoom)
+		{
+			m_fZoom += fTime;
 
-		vPos += GetPivot() * Vector3((float)tRS.iWidth, (float)tRS.iHeight, 0.f);
+			m_matProj = DirectX::XMMatrixOrthographicOffCenterLH(
+				(m_tRect.fL + (0.5f - m_tRect.fL) * m_fZoom) * m_tRS.iWidth,
+				(m_tRect.fR + (0.5f - m_tRect.fR) * m_fZoom) * m_tRS.iWidth,
+				(m_tRect.fB + (0.5f - m_tRect.fB) * m_fZoom) * m_tRS.iHeight,
+				(m_tRect.fT + (0.5f - m_tRect.fT) * m_fZoom) * m_tRS.iHeight,
+				-1000.f, m_fDist);
+		}
+
+		else if (m_fZoomLimit < m_fZoom)
+		{
+			m_fZoom = m_fZoomLimit;
+
+			m_matProj = DirectX::XMMatrixOrthographicOffCenterLH(
+				(m_tRect.fL + (0.5f - m_tRect.fL) * m_fZoom) * m_tRS.iWidth,
+				(m_tRect.fR + (0.5f - m_tRect.fR) * m_fZoom) * m_tRS.iWidth,
+				(m_tRect.fB + (0.5f - m_tRect.fB) * m_fZoom) * m_tRS.iHeight,
+				(m_tRect.fT + (0.5f - m_tRect.fT) * m_fZoom) * m_tRS.iHeight,
+				-1000.f, m_fDist);
+		}
+
+		vPos += GetPivot() * Vector3((float)m_tRS.iWidth, (float)m_tRS.iHeight, 0.f);
 
 		m_vPos.z = m_fZoom;
 
-		Vector3 vMove = m_vPos - vPos + Vector3((float)tRS.iWidth, (float)tRS.iHeight, 0.f) * GetPivot();
+		Vector3 vMove = m_vPos - vPos + Vector3((float)m_tRS.iWidth, (float)m_tRS.iHeight, 0.f) * GetPivot();
 
 		float fLength = vMove.Length();
 
@@ -192,14 +329,34 @@ void CCamera::Update(float fTime)
 
 	else
 	{
-		Resolution tRS = RESOLUTION;
+		if (m_fZoom > 0.f)
+		{
+			m_fZoom -= fTime;
 
-		vPos += GetPivot() * Vector3((float)tRS.iWidth, (float)tRS.iHeight, 0.f);
+			m_matProj = DirectX::XMMatrixOrthographicOffCenterLH(
+				(m_tRect.fL + (0.5f - m_tRect.fL) * m_fZoom) * m_tRS.iWidth,
+				(m_tRect.fR + (0.5f - m_tRect.fR) * m_fZoom) * m_tRS.iWidth,
+				(m_tRect.fB + (0.5f - m_tRect.fB) * m_fZoom) * m_tRS.iHeight,
+				(m_tRect.fT + (0.5f - m_tRect.fT) * m_fZoom) * m_tRS.iHeight,
+				-1000.f, m_fDist);
+		}
+
+		else if (m_fZoom < 0.f)
+		{
+			m_fZoom = 0.f;
+
+			m_matProj = DirectX::XMMatrixOrthographicOffCenterLH(
+				(m_tRect.fL + (0.5f - m_tRect.fL) * m_fZoom) * m_tRS.iWidth,
+				(m_tRect.fR + (0.5f - m_tRect.fR) * m_fZoom) * m_tRS.iWidth,
+				(m_tRect.fB + (0.5f - m_tRect.fB) * m_fZoom) * m_tRS.iHeight,
+				(m_tRect.fT + (0.5f - m_tRect.fT) * m_fZoom) * m_tRS.iHeight,
+				-1000.f, m_fDist);
+		}
+
+		vPos += GetPivot() * Vector3((float)m_tRS.iWidth, (float)m_tRS.iHeight, 0.f);
 
 		if (m_pTarget)
 		{
-			Resolution tRS = RESOLUTION;
-
 			Vector3 vTarPos = m_pTarget->GetWorldPos();
 
 			vTarPos.z = vPos.z;
@@ -210,20 +367,26 @@ void CCamera::Update(float fTime)
 
 				vFocusPos.z = vPos.z;
 
+				Vector3 vMidPos = (vFocusPos + vTarPos) /2.f;
+
 				float fDist = vFocusPos.Distance(vTarPos);
 
 				if (fDist >= m_fMinRange && fDist <= m_fMaxRange)
 				{
-					Vector3 vNew = vTarPos + (vFocusPos - vTarPos) *
+					Vector3 vNew = vTarPos + (vMidPos - vTarPos) *
 						(m_fMaxRange - fDist) / (m_fMaxRange - m_fMinRange);
 
-						SetWorldPos(vNew);
-					//m_vPos = vFocusPos;
+					SetWorldPos(vNew);
 				}
 
 				else if (fDist < m_fMinRange)
 				{
-					m_vPos = vFocusPos;
+					m_vPos = vMidPos;
+
+					if (m_pCallBack)
+					{
+						m_pCallBack(fTime);
+					}
 				}
 
 				else
@@ -245,7 +408,7 @@ void CCamera::Update(float fTime)
 
 			m_vPos.z = -150.f;
 
-			Vector3 _vPos = m_vPos - vPos + Vector3((float)tRS.iWidth, (float)tRS.iHeight, 0.f) * GetPivot();
+			Vector3 _vPos = m_vPos - vPos + Vector3((float)m_tRS.iWidth, (float)m_tRS.iHeight, 0.f) * GetPivot();
 
 			float fLength = _vPos.Length();
 
@@ -276,14 +439,12 @@ void CCamera::PostUpdate(float fTime)
 {
 	CSceneComponent::PostUpdate(fTime);
 
-	Resolution tRS = RESOLUTION;
-
 	m_matView.Identity();
 
 	Vector3 vPos = GetWorldPos();
 
 	if (m_eType == CAMERA_TYPE::CT_2D)
-		vPos -= GetPivot() * Vector3((float)tRS.iWidth, (float)tRS.iHeight, 0.f);
+		vPos -= GetPivot() * Vector3((float)m_tRS.iWidth, (float)m_tRS.iHeight, 0.f);
 
 	for (int i = 0; i < (int)WORLD_AXIS::AXIS_END; ++i)
 	{

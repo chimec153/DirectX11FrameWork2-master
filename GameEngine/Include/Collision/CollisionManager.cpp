@@ -129,11 +129,21 @@ void CCollisionManager::AddCollider(CCollider* pCol, SECTION_TYPE eType)
 
 	iStartX = (int)(vMin.x / pInfo->vSize.x / pInfo->ixCnt);
 	iStartY = (int)(vMin.y / pInfo->vSize.y / pInfo->iyCnt);
-	iStartZ = (int)(vMin.z / pInfo->vSize.z / pInfo->izCnt);
+
+	if (eType == SECTION_TYPE::_3D)
+	{
+		iStartZ = (int)(vMin.z / pInfo->vSize.z / pInfo->izCnt);
+		iEndZ = (int)(vMax.z / pInfo->vSize.z / pInfo->izCnt);
+	}
+
+	else
+	{
+		iStartZ = 0;
+		iEndZ = 0;
+	}
 
 	iEndX = (int)(vMax.x / pInfo->vSize.x / pInfo->ixCnt);
 	iEndY = (int)(vMax.y / pInfo->vSize.y / pInfo->iyCnt);
-	iEndZ = (int)(vMax.z / pInfo->vSize.z / pInfo->izCnt);
 
 	iStartX = iStartX < 0 ? 0 : iStartX;
 	iStartY = iStartY < 0 ? 0 : iStartY;

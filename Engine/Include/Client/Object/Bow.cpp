@@ -1,5 +1,6 @@
 #include "Bow.h"
 #include "Component/SpriteComponent.h"
+#include "Resource/Material.h"
 
 CBow::CBow()	:
 	m_pMesh(nullptr)
@@ -78,8 +79,17 @@ bool CBow::Init()
 	m_pMesh->CreateSprite("DieR",	"BowDieR", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("DieRD",	"BowDieRD", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("DieD",	"BowDieD", LOOP_OPTION::LOOP);
+
 	m_pMesh->SetPivot(0.5f, 0.5f, 0.f);
 	m_pMesh->AddRenderState("Character");
+	m_pMesh->AddRenderState("NoCullBack");
+	m_pMesh->AddRenderState("AlphaBlend");
+
+	CMaterial* pMat = m_pMesh->GetMaterial();
+
+	pMat->SetGray(false);
+
+	SAFE_RELEASE(pMat);
 
 	SetRootComponent(m_pMesh);
 

@@ -10,6 +10,10 @@ private:
 	std::unordered_map<std::string, PCBuffer>				m_mapCBuffer;
 	std::vector<D3D11_INPUT_ELEMENT_DESC>					m_vecInputDesc;
 	int														m_iInputSize;
+	ID3D11Buffer* m_pBuffer;
+	ID3D11Buffer* m_pOutputBuffer;
+	ID3D11UnorderedAccessView* m_pInputSRV;
+	ID3D11UnorderedAccessView* m_pOutputUAV;
 
 public:
 	bool Init();
@@ -64,6 +68,9 @@ public:
 		const TCHAR* pFileName, const std::string& strRootPath = SHADER_PATH);
 	bool LoadGeometryShader(const std::string& strName, const char* pEntryName,
 		const TCHAR* pFileName, const std::string& strRootPath = SHADER_PATH);
+	bool LoadGeometryShaderWithSO(const std::string& strName, const char* pEntryName,
+		D3D11_SO_DECLARATION_ENTRY* pEntry, UINT iNumEntries, UINT iStride, UINT iNumStrides,
+		const TCHAR* pFileName, const std::string& strRootName = SHADER_PATH);
 	bool LoadDomainShader(const std::string& strName, const char* pEntryName,
 		const TCHAR* pFileName, const std::string& strRootPath = SHADER_PATH);
 

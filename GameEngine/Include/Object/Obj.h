@@ -58,6 +58,7 @@ public:
 
 public:
 	virtual bool Init();
+	virtual bool Init(const char* pFile, const char* pPathKey = DATA_PATH);
 	virtual void Start();
 	virtual void Input(float fTime);
 	virtual void Update(float fTime);
@@ -75,6 +76,8 @@ public:
 	void SetInheritRotX(bool bInherit);
 	void SetInheritRotY(bool bInherit);
 	void SetInheritRotZ(bool bInherit);
+	void SetUpdateScale(bool bScale);
+	void SetUpdateRot(bool bRot);
 	void InheritScale();
 	void InheritRot();
 	void InheritPos();
@@ -144,6 +147,12 @@ public:
 	void SetPivot(const Vector3& v);
 	void SetPivot(float x, float y, float z);
 	void SetMeshSize(const Vector3& v);
+	void Slerp(const Vector4& p, const Vector4& q, float s);
+	void Slerp(const Vector4& q, float s);
+	void SetQuaternionRot(const Vector4& vAxis, float fAngle);
+	void AddQuaternionRot(const Vector4& vAxis, float fAngle);
+	void SetQuaternionRotNorm(const Vector4& vAxis, float fAngle);
+	void AddQuaternionRotNorm(const Vector4& vAxis, float fAngle);
 
 public:
 	template <typename T>
@@ -176,11 +185,82 @@ public:
 		if (m_bStart)
 			pComponent->Start();
 
-		return pComponent;		
+		return pComponent;
+	}
+
+	template <typename T>
+	T* CreateComponent(const std::string& strName, const char* pFileName, 
+		const std::string& strPathKey = DATA_PATH, class CLayer* pLayer = nullptr)
+	{
+		T* pComponent = new T;
+
+		pComponent->SetName(strName);
+		pComponent->m_pScene = m_pScene;
+		pComponent->m_pObj = this;
+
+		if (pLayer == nullptr)
+			pComponent->m_pLayer = m_pLayer;
+
+		else
+			pComponent->m_pLayer = pLayer;
+
+		if (!pComponent->Init(pFileName, strPathKey))
+		{
+			SAFE_RELEASE(pComponent);
+			return nullptr;
+		}
+
+		if (pComponent->GetType() == COMPONENT_TYPE::CT_OBJECT)
+		{
+			pComponent->AddRef();
+			m_vecObjComponent.push_back((CObjComponent*)pComponent);
+		}
+
+		if (m_bStart)
+			pComponent->Start();
+
+		return pComponent;
+	}
+
+	template <typename T>
+	T* CreateComponent(const std::string& strName, FILE* pFile, 
+		class CLayer* pLayer = nullptr)
+	{
+		T* pComponent = new T;
+
+		pComponent->SetName(strName);
+		pComponent->m_pScene = m_pScene;
+		pComponent->m_pObj = this;
+
+		if (pLayer == nullptr)
+			pComponent->m_pLayer = m_pLayer;
+
+		else
+			pComponent->m_pLayer = pLayer;
+
+		if (!pComponent->Init(pFile))
+		{
+			SAFE_RELEASE(pComponent);
+			return nullptr;
+		}
+
+		if (pComponent->GetType() == COMPONENT_TYPE::CT_OBJECT)
+		{
+			pComponent->AddRef();
+			m_vecObjComponent.push_back((CObjComponent*)pComponent);
+		}
+
+		if (m_bStart)
+			pComponent->Start();
+
+		return pComponent;
 	}
 
 public:
 	void GetAllComponentName(std::vector<Hierarchy>& vecHierarchy);
 	void GetAllComponent(std::vector<CSceneComponent*>& vecCom);
+
+	public:
+		void SpawnWindow();
 };
 

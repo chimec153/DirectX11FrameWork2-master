@@ -22,6 +22,7 @@ public:
 	class CObj* GetObj()	const;
 	COMPONENT_TYPE GetType()	const;
 	class CLayer* GetLayer()	const;
+	class CScene* GetScene()	const;
 
 protected:
 	bool		m_bStart;
@@ -31,6 +32,8 @@ public:
 
 public:
 	virtual bool Init();
+	virtual bool Init(const char* pFileName, const std::string& strPathKey = DATA_PATH);
+	virtual bool Init(FILE* pFile);
 	virtual void Start();
 	virtual void Update(float fTime);
 	virtual void PostUpdate(float fTime);

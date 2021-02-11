@@ -22,6 +22,10 @@
 #include <queue>
 #include <stack>
 
+#include "UI/imgui/imgui.h"
+#include "UI/imgui/imgui_impl_dx11.h"
+#include "UI/imgui/imgui_impl_win32.h"
+
 #include "Macro.h"
 #include "resource.h"
 #include "EngineMath.h"
@@ -102,6 +106,72 @@ typedef struct _tagSpriteCBuffer
 	Vector2	vEnd;
 	Vector2	vSize;
 }SpriteCBuffer, *PSpriteCBuffer;
+
+typedef struct _tagGlobalCBuffer
+{
+	float	fDeltaTime;
+	float	fAccTime;
+	Vector2 vNoiseSize;
+}GLOBALCBUFFER, *PGLOBALCBUFFER;
+
+typedef struct _tagParticle
+{
+	Vector3 vPos;
+	Vector3 vMoveDir;
+	float fSpeed;
+	float fAddSpeed;
+	float fLifeTime;
+	float fMaxLifeTime;
+	int iLive;
+	float	fAngle;
+	int	iFrame;
+}PARTICLE, * PPARTICLE;
+
+typedef struct _tagParticleShare
+{
+	unsigned int iMaxCount;
+	unsigned int iCount;
+
+	Vector3 vStartScale;
+	Vector3 vEndScale;
+
+	Vector4 vStartColor;
+	Vector4 vEndColor;
+}PARTICLESHARE, * PPARTICLESHARE;
+
+typedef struct _tagParticleCBuffer
+{
+	Vector3 vPos;
+	unsigned int iCount;
+	Vector3 vStartScale;
+	unsigned int iMaxCount;
+	Vector3 vEndScale;
+	float fMinLifeTime;
+	Vector3 vRange;
+	float fMaxLifeTime;
+	Vector4 vStartColor;
+	Vector4 vEndColor;
+	float fMinSpeed;
+	float fMaxSpeed;
+	int iMove;
+	int i2D;
+	Vector3 vMoveDir;
+	float fTurnAngle;
+	Vector3 vMoveAngle;
+	float fFrameTime;
+	int		iFrameMax;
+	Vector3	vAcc;
+}PARTICLECBUFFER, *PPARTICLECBUFFER;
+
+typedef struct _tagCBPerFrame
+{
+	Vector3 vCamPosW;
+	Vector3 vEmitPosW;
+	Vector3 vEmitDirW;
+	float	fGameTime;
+	float	fTimeStep;
+	Matrix matViewProj;
+}CBPERFRAME, *PCBPERFRAME;
 
 typedef struct _tagRectInfo
 {
@@ -285,20 +355,8 @@ typedef struct _tagFade
 	
 }FADE, * PFADE;
 
-// 연습용 코드
-struct Particle
+typedef struct _tagAngle
 {
-	DirectX::XMFLOAT3 InitialPos;
-	DirectX::XMFLOAT3 InitialVel;
-	DirectX::XMFLOAT2 Size;
-	float Age;
-	unsigned int Type;
-};
-
-struct Data
-{
-	XMFLOAT3 v1;
-	XMFLOAT2 v2;
-};
-
-// 연습용 코드
+	float fAngle;
+	Vector3 vE;
+}ANGLE, *PANGLE;

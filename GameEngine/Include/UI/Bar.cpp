@@ -43,14 +43,14 @@ bool CBar::Init()
 
 	m_pImage = GET_SINGLE(CResourceManager)->GetUIMesh();
 
-	CMaterial* pMtrl = m_pImage->GetMaterial();
+	/*CMaterial* pMtrl = m_pImage->GetMaterial();
 
 	if (pMtrl)
 	{
 		m_pMaterial = pMtrl->Clone();
 
 		pMtrl->Release();
-	}
+	}*/
 
 	if(m_pMaterial)
 		m_pMaterial->SetShader("Bar");

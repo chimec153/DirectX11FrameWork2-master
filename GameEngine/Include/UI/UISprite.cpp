@@ -11,6 +11,7 @@ CUISprite::CUISprite()	:
 	m_iFrm(0),
 	m_iMF(0)
 {
+	m_eSceneComponentClassType = SCENECOMPONENT_CLASS_TYPE::UI_SPRITE;
 }
 
 CUISprite::CUISprite(const CUISprite& ui)	:
@@ -43,7 +44,7 @@ bool CUISprite::Init()
 
 	m_pImage = GET_SINGLE(CResourceManager)->GetUIMesh();
 
-	m_pMaterial = m_pImage->GetMaterial();
+	//m_pMaterial = m_pImage->GetMaterial();
 
 	m_tCBuffer.iAniType = (int)IMAGE_TYPE::IT_ARRAY;
 

@@ -6,6 +6,7 @@
 
 CUIImage::CUIImage()
 {
+	m_eSceneComponentClassType = SCENECOMPONENT_CLASS_TYPE::UI_IMAGE;
 }
 
 CUIImage::CUIImage(const CUIImage& ui)	:
@@ -24,7 +25,7 @@ bool CUIImage::Init()
 
 	m_pImage = GET_SINGLE(CResourceManager)->GetUIMesh();
 
-	m_pMaterial = m_pImage->GetMaterial();
+	//m_pMaterial = m_pImage->GetMaterial();
 
 	return true;
 }

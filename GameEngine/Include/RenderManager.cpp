@@ -15,6 +15,7 @@
 #include "Resource/Texture.h"
 #include "Layer.h"
 #include "Scene/SceneManager.h"
+#include "Component/Renderer.h"
 
 DEFINITION_SINGLE(CRenderManager)
 
@@ -25,7 +26,6 @@ CRenderManager::CRenderManager()	: m_TileInst(nullptr)
 
 CRenderManager::~CRenderManager()
 {
-	SAFE_DELETE_MAP(m_mapState);
 	SAFE_DELETE_MAP(m_mapInstancing);
 	SAFE_DELETE(m_TileInst);
 	SAFE_RELEASE_MAP(m_mapState);
@@ -39,7 +39,12 @@ bool CRenderManager::Init()
 	AddRasterizerState("NoCullBack", D3D11_FILL_SOLID, D3D11_CULL_NONE);
 	CreateRasterizerState("NoCullBack");
 
+	AddRasterizerState("CullFront", D3D11_FILL_SOLID, D3D11_CULL_FRONT);
+	CreateRasterizerState("CullFront");
+
 	AddDepthStencilDesc("DepthNoWrite", false);
+	AddDepthStencilDesc("DepthReadNoWrite", true, D3D11_DEPTH_WRITE_MASK_ZERO);
+	AddDepthStencilDesc("Default");
 
 	D3D11_DEPTH_STENCILOP_DESC tFrt = {};
 	D3D11_DEPTH_STENCILOP_DESC tBck = {};
@@ -54,19 +59,34 @@ bool CRenderManager::Init()
 	tBck.StencilFailOp = D3D11_STENCIL_OP_KEEP;
 	tBck.StencilFunc = D3D11_COMPARISON_EQUAL;
 
-	AddDepthStencilDesc("Silhouette", true, D3D11_DEPTH_WRITE_MASK_ALL, D3D11_COMPARISON_LESS,
+	AddDepthStencilDesc("Silhouette", true, D3D11_DEPTH_WRITE_MASK_ZERO, D3D11_COMPARISON_ALWAYS,
 		true, 0xff, 0xff, tFrt, tBck);
 
-	AddDepthStencilDesc("Character", true, D3D11_DEPTH_WRITE_MASK_ZERO, D3D11_COMPARISON_LESS,
+	AddDepthStencilDesc("Character", true, D3D11_DEPTH_WRITE_MASK_ZERO, D3D11_COMPARISON_ALWAYS,
+		true, 0xff, 0xff, tFrt, tBck);
+
+	tFrt.StencilFunc = D3D11_COMPARISON_GREATER_EQUAL;
+
+	AddDepthStencilDesc("Colossus", true, D3D11_DEPTH_WRITE_MASK_ZERO, D3D11_COMPARISON_LESS,
 		true, 0xff, 0xff, tFrt, tBck);
 
 	CDepthStencilState* pState = (CDepthStencilState*)FindState("Silhouette");
 
 	pState->SetStencilRef(0x1);
 
+	SAFE_RELEASE(pState);
+
 	pState = (CDepthStencilState*)FindState("Character");
 
 	pState->SetStencilRef(0);
+
+	SAFE_RELEASE(pState);
+
+	pState = (CDepthStencilState*)FindState("Colossus");
+
+	pState->SetStencilRef(0x1);
+
+	SAFE_RELEASE(pState);
 
 	tFrt.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
 	tFrt.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
@@ -84,6 +104,8 @@ bool CRenderManager::Init()
 	pState = (CDepthStencilState*)FindState("ForeGround");
 
 	pState->SetStencilRef(0x1);
+
+	SAFE_RELEASE(pState);
 
 	return true;
 }
@@ -204,7 +226,22 @@ bool CRenderManager::AddComponent(CSceneComponent* pComponent)
 				}
 
 				else
+				{
 					pInst->Init(pMesh, pClone, 10000, sizeof(InstancedData2D));
+				}
+
+				CRenderer* pRenderer = pComponent->GetRenderer();
+
+				std::vector<CRenderState*> vecState = pRenderer->GetVecRenderState();
+
+				size_t iSz = vecState.size();
+
+				for (size_t i = 0; i < iSz; ++i)
+				{
+					pInst->AddState(vecState[i]);
+				}
+
+				SAFE_RELEASE(pRenderer);
 
 				CLayer* pLayer = pComponent->GetLayer();
 
@@ -365,8 +402,8 @@ void CRenderManager::Render(float fTime)
 	ResetState("AlphaBlend");
 
 	SetState("AlphaBlend");
-	SetState("DepthNoWrite");
-	SetState("NoCullBack");
+	//SetState("DepthNoWrite");
+	//SetState("NoCullBack");
 
 	std::list<CLayer*>::iterator iter = m_LayerList.begin();
 	std::list<CLayer*>::iterator iterEnd = m_LayerList.end();
@@ -385,8 +422,8 @@ void CRenderManager::Render(float fTime)
 	Render3D(fTime);
 	RenderUI(fTime);*/
 
-	ResetState("NoCullBack");
-	ResetState("DepthNoWrite");
+	//ResetState("NoCullBack");
+	//ResetState("DepthNoWrite");
 }
 
 void CRenderManager::Render2D(float fTime)
@@ -432,7 +469,7 @@ bool CRenderManager::AddBlendDesc(const std::string& strTag, bool bEnable,
 	{
 		pState = new CBlendState;
 
-		pState->SetTag(strTag);
+		pState->SetName(strTag);
 
 		m_mapState.insert(std::make_pair(strTag, pState));
 	}
@@ -465,6 +502,8 @@ bool CRenderManager::CreateBlendState(const std::string& strTag, bool bAlpha, bo
 		return false;
 	}
 
+	SAFE_RELEASE(pState);
+
 	return true;
 }
 
@@ -478,7 +517,9 @@ bool CRenderManager::AddDepthStencilDesc(const std::string& strTag, bool bDepthE
 	{
 		pState = new CDepthStencilState;
 
-		pState->SetTag(strTag);
+		pState->AddRef();
+
+		pState->SetName(strTag);
 		
 		m_mapState.insert(std::make_pair(strTag, pState));
 	}
@@ -491,6 +532,8 @@ bool CRenderManager::AddDepthStencilDesc(const std::string& strTag, bool bDepthE
 		SAFE_RELEASE(pState);
 		return false;
 	}
+
+	SAFE_RELEASE(pState);
 
 	return true;
 }
@@ -506,7 +549,7 @@ bool CRenderManager::AddRasterizerState(const std::string& strTag, D3D11_FILL_MO
 
 	pState = new CRasterizerState;
 
-	pState->SetTag(strTag);
+	pState->SetName(strTag);
 	
 	if (!pState->AddRasterizerState(eFillMode, eCullMode, bFront, iBias, fBiasClamp,
 		fSSDB, bDepthClip, bScissor, bMultiSample, bAntiAliasLine))
@@ -535,6 +578,8 @@ bool CRenderManager::CreateRasterizerState(const std::string& strTag)
 		SAFE_RELEASE(pState);
 		return false;
 	}
+
+	SAFE_RELEASE(pState);
 
 	return true;
 }
@@ -611,6 +656,19 @@ void CRenderManager::AddTileInstancingData(CTile* pTile)
 		CScene* pScene = GET_SINGLE(CSceneManager)->GetScene();
 
 		pScene->SortInstText();
+
+		CRenderer* pRenderer = pTile->GetRenderer();
+
+		std::vector<CRenderState*> vecState = pRenderer->GetVecRenderState();
+
+		size_t iSz = vecState.size();
+
+		for (size_t i = 0; i < iSz; ++i)
+		{
+			pTileInst->AddState(vecState[i]);
+		}
+
+		SAFE_RELEASE(pRenderer);
 
 		if (pLayer->GetName() == "1_FG1")
 		{

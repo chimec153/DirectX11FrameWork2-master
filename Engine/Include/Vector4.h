@@ -72,6 +72,13 @@ typedef __declspec(dllexport) union _tagVector4
 	void Convert(const DirectX::XMVECTOR& v);
 	DirectX::XMVECTOR Convert()	const;
 
+	static _tagVector4 LerpAndNormalize(_tagVector4 p, _tagVector4 q, float s);
+	static _tagVector4 Slerp(_tagVector4 p, _tagVector4 q, float s);
+	void Normalize();
+	float Length()	const;
+	float Dot(const _tagVector4& v) const;
+	void QuaternionRotation(const union _tagMatrix& rot);
+
 	static _tagVector4 White;
 	static _tagVector4 Black;
 	static _tagVector4 Red;
@@ -80,3 +87,5 @@ typedef __declspec(dllexport) union _tagVector4
 
 }Vector4, *PVector4;
 
+_tagVector4 operator * (float f, _tagVector4 v);
+_tagVector4 operator - (_tagVector4 v);

@@ -16,6 +16,11 @@ private:
 	class CTileMap* m_pMap;
 	class CSound* m_pSnd;
 	int		m_iCol;
+	bool	m_bFire;
+	class CSpriteComponent* m_pFire;
+	bool	m_bFixed;
+	class CObj* m_pFixingObj;
+	class CTileMap* m_pMtrlMap;
 
 public:
 	void SetLimitDist(float fDist)
@@ -45,6 +50,25 @@ public:
 	{
 		return m_iCol;
 	}
+
+	void ChangeSprite(const std::string& strTag);
+
+	void SetFire(bool bFire);
+
+	bool IsFire()	const
+	{
+		return m_bFire;
+	}
+
+	void SetFix(bool bFix);
+
+	bool IsFixed()	const
+	{
+		return m_bFixed;
+	}
+
+	void SetFixObj(class CObj* pObj);
+	class CObj* GetFixObj()	const;
 
 public:
 	virtual bool Init();

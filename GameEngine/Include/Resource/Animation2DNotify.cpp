@@ -30,6 +30,11 @@ void CAnimation2DNotify::AddFunc(void(*pFunc)(float))
 	m_vecCallBack.push_back(std::bind(pFunc, std::placeholders::_1));
 }
 
+void CAnimation2DNotify::AddFunc(void(*pFunc)(int, float))
+{
+	m_vecFrameFunc.push_back(std::bind(pFunc, std::placeholders::_1, std::placeholders::_2));
+}
+
 void CAnimation2DNotify::Update(float fTime, int iFrame, float fDeltaTime)
 {
 	if (m_bCall)
@@ -71,6 +76,20 @@ void CAnimation2DNotify::Call(float fTime)
 	for (size_t i = 0; i < iSz; ++i)
 	{
 		m_vecCallBack[i](fTime);
+	}
+	
+	iSz = m_vecFrameFunc.size();
+
+	for (size_t i = 0; i < iSz; ++i)
+	{
+		if (m_iFrame != -1)
+		{
+			m_vecFrameFunc[i](m_iFrame, fTime);
+		}
+		else
+		{
+			m_vecFrameFunc[i](m_fTime, fTime);
+		}
 	}
 }
 
