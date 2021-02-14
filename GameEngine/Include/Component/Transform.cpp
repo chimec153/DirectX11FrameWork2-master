@@ -203,6 +203,7 @@ void CTransform::Save(FILE* pFile)
 	fwrite(m_vWorldAxis, sizeof(Vector3), (int)WORLD_AXIS::AXIS_END, pFile);
 	fwrite(&m_vPivot, sizeof(Vector3), 1, pFile);
 	fwrite(&m_vMeshSize, sizeof(Vector3), 1, pFile);
+	fwrite(&m_vQuaternion, sizeof(Vector4), 1, pFile);
 }
 
 void CTransform::Load(FILE* pFile)
@@ -222,6 +223,7 @@ void CTransform::Load(FILE* pFile)
 	fread(m_vWorldAxis, sizeof(Vector3), (int)WORLD_AXIS::AXIS_END, pFile);
 	fread(&m_vPivot, sizeof(Vector3), 1, pFile);
 	fread(&m_vMeshSize, sizeof(Vector3), 1, pFile);
+	fread(&m_vQuaternion, sizeof(Vector4), 1, pFile);
 
 	m_bUpdateRot = true;
 	m_bUpdateScale = true;
@@ -233,10 +235,12 @@ void CTransform::SpawnWindow()
 	{
 		ImGui::Text("Pos");
 		ImGui::SliderFloat3("Pos", &m_vWorldPos.x, -5000.f, 5000.f);
-		ImGui::Text("Rot");
-		ImGui::SliderFloat3("Rot", &m_vWorldRot.x, -180.f, 180.f);
 		ImGui::Text("Scale");
 		ImGui::SliderFloat3("Scale", &m_vWorldScale.x, -5000.f, 5000.f);
+		ImGui::Text("Rot");
+		ImGui::SliderFloat3("Rot", &m_vWorldRot.x, -180.f, 180.f);
+		ImGui::Text("Quternion");
+		ImGui::SliderFloat4("Quternion", &m_vQuaternion.x, -180.f, 180.f);
 	}
 	ImGui::End();
 }

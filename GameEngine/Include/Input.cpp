@@ -249,14 +249,14 @@ void CInput::UpdateAxis(float fTime)
 
 void CInput::UpdateAction(float fTime)
 {
-	bool bUnion[KU_END] = {};
-	char cKey[KU_END] = {VK_CONTROL, VK_MENU, VK_SHIFT};
+	bool bUnion[(int)KEY_UNION::KU_END] = {};
+	char cKey[(int)KEY_UNION::KU_END] = {VK_CONTROL, VK_MENU, VK_SHIFT};
 
 	switch (m_eType)
 	{
 	case KEY_INPUT_TYPE::KIT_WIN:
 
-		for (int i = 0; i < KU_END; ++i)
+		for (int i = 0; i < (int)KEY_UNION::KU_END; ++i)
 		{
 			if (GetAsyncKeyState(cKey[i]) & 0x8000)
 				bUnion[i] = true;
@@ -265,9 +265,9 @@ void CInput::UpdateAction(float fTime)
 		break;
 	case KEY_INPUT_TYPE::KIT_DINPUT:
 
-		cKey[KU_CTRL] = DIK_LCONTROL;
-		cKey[KU_ALT] = DIK_LALT;
-		cKey[KU_SHIFT] = DIK_LSHIFT;
+		cKey[(int)KEY_UNION::KU_CTRL] = DIK_LCONTROL;
+		cKey[(int)KEY_UNION::KU_ALT] = DIK_LALT;
+		cKey[(int)KEY_UNION::KU_SHIFT] = DIK_LSHIFT;
 /*
 		for (int i = 0; i < KU_END; ++i)
 		{
@@ -289,7 +289,7 @@ void CInput::UpdateAction(float fTime)
 		{
 			bool bEnable = true;
 
-			for (int j = 0; j < KU_END; ++j)
+			for (int j = 0; j < (int)KEY_UNION::KU_END; ++j)
 			{
 				if (iter->second->vecKey[i].bUnion[j] != bUnion[j])
 				{
@@ -307,33 +307,33 @@ void CInput::UpdateAction(float fTime)
 				{
 					iter->second->vecKey[i].bPush = true;
 
-					size_t iFuncSize = iter->second->vecFunc[KT_DOWN].size();
+					size_t iFuncSize = iter->second->vecFunc[(int)KEY_TYPE::KT_DOWN].size();
 
 					for (size_t j = 0; j < iFuncSize; ++j)
-						iter->second->vecFunc[KT_DOWN][j].pFunc(iter->first, KT_DOWN,
+						iter->second->vecFunc[(int)KEY_TYPE::KT_DOWN][j].pFunc(iter->first, KEY_TYPE::KT_DOWN,
 							iter->second->vecKey[i].pInfo->fPushTime, fTime);
 
-					iFuncSize = iter->second->vecDFunc[KT_DOWN].size();
+					iFuncSize = iter->second->vecDFunc[(int)KEY_TYPE::KT_DOWN].size();
 
 					for (size_t j = 0; j < iFuncSize; ++j)
 					{
-						iter->second->vecDFunc[KT_DOWN][j](fTime);
+						iter->second->vecDFunc[(int)KEY_TYPE::KT_DOWN][j](fTime);
 					}
 				}
 
 				else
 				{
-					size_t iFuncSize = iter->second->vecFunc[KT_PRESS].size();
+					size_t iFuncSize = iter->second->vecFunc[(int)KEY_TYPE::KT_PRESS].size();
 
 					for (size_t j = 0; j < iFuncSize; ++j)
-						iter->second->vecFunc[KT_PRESS][j].pFunc(iter->first, KT_PRESS,
+						iter->second->vecFunc[(int)KEY_TYPE::KT_PRESS][j].pFunc(iter->first, KEY_TYPE::KT_PRESS,
 							iter->second->vecKey[i].pInfo->fPushTime, fTime);
 
-					iFuncSize = iter->second->vecDFunc[KT_PRESS].size();
+					iFuncSize = iter->second->vecDFunc[(int)KEY_TYPE::KT_PRESS].size();
 
 					for (size_t j = 0; j < iFuncSize; ++j)
 					{
-						iter->second->vecDFunc[KT_PRESS][j](fTime);
+						iter->second->vecDFunc[(int)KEY_TYPE::KT_PRESS][j](fTime);
 					}
 				}
 			}
@@ -342,17 +342,17 @@ void CInput::UpdateAction(float fTime)
 			{
 				iter->second->vecKey[i].bPush = false;
 
-				size_t iFuncSize = iter->second->vecFunc[KT_UP].size();
+				size_t iFuncSize = iter->second->vecFunc[(int)KEY_TYPE::KT_UP].size();
 
 				for (size_t j = 0; j < iFuncSize; ++j)
-					iter->second->vecFunc[KT_UP][j].pFunc(iter->first, KT_UP, 
+					iter->second->vecFunc[(int)KEY_TYPE::KT_UP][j].pFunc(iter->first, KEY_TYPE::KT_UP,
 						iter->second->vecKey[i].pInfo->fPushTime, fTime);
 
-				iFuncSize = iter->second->vecDFunc[KT_UP].size();
+				iFuncSize = iter->second->vecDFunc[(int)KEY_TYPE::KT_UP].size();
 
 				for (size_t j = 0; j < iFuncSize; ++j)
 				{
-					iter->second->vecDFunc[KT_UP][j](fTime);
+					iter->second->vecDFunc[(int)KEY_TYPE::KT_UP][j](fTime);
 				}
 
 				iter->second->vecKey[i].pInfo->fPushTime = 0.f;
@@ -430,8 +430,8 @@ void CInput::UpdateMouse(float fTime)
 
 	SAFE_RELEASE(pCam);
 
-	m_vMousePos += Vector2((float)tRS.iWidth, (float)tRS.iHeight) * Vector2(vPivot.x, vPivot.y)
-		* Vector2(tInfo.fR - tInfo.fL, -tInfo.fT+ tInfo.fB);
+	//m_vMousePos -= Vector2((float)tRS.iWidth, (float)tRS.iHeight) * Vector2(vPivot.x, vPivot.y)
+		//* Vector2(tInfo.fR - tInfo.fL, -tInfo.fT+ tInfo.fB);
 
 	m_vWorldMousePos = m_vMousePos + Vector2(vCamPos.x, vCamPos.y);
 
@@ -666,7 +666,7 @@ void CInput::AddActionKeyUnion(const std::string& strTag, unsigned char cKey, KE
 	for (size_t i = 0; i < iSize; ++i)
 	{
 		if (pAction->vecKey[i].pInfo->cKey == cKey)
-			pAction->vecKey[i].bUnion[eUnion] = true;
+			pAction->vecKey[i].bUnion[(int)eUnion] = true;
 	}
 }
 
@@ -686,7 +686,7 @@ void CInput::AddActionBind(const std::string& strTag, KEY_TYPE eType, void(*pFun
 	tFunc.pFunc = std::bind(pFunc, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 	tFunc.pObj = nullptr;
 
-	pAction->vecFunc[eType].push_back(tFunc);
+	pAction->vecFunc[(int)eType].push_back(tFunc);
 }
 
 void CInput::AddActionBind(const std::string& strTag, KEY_TYPE eType, void(*pFunc)(float))
@@ -700,7 +700,7 @@ void CInput::AddActionBind(const std::string& strTag, KEY_TYPE eType, void(*pFun
 		m_mapBindAction.insert(std::make_pair(strTag, pAction));
 	}
 
-	pAction->vecDFunc[eType].push_back(std::bind(pFunc, std::placeholders::_1));
+	pAction->vecDFunc[(int)eType].push_back(std::bind(pFunc, std::placeholders::_1));
 }
 
 void CInput::DeleteActionKey(const std::string& strTag)
@@ -743,7 +743,7 @@ void CInput::DeleteActionKey(const std::string& strTag, CInputObj* pInput)
 	if (!pAction)
 		return;
 
-	for (int j = 0; j< KT_END; ++j)
+	for (int j = 0; j< (int)KEY_TYPE::KT_END; ++j)
 	{
 		size_t iSize = pAction->vecFunc[j].size();
 

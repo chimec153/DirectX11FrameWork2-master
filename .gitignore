@@ -223,3 +223,17 @@ GameEngine/BinObj_Debug/Vector3.obj
 GameEngine/BinObj_Debug/Vector4.obj
 GameEngine/Include/GameEngine.vcxproj
 GameEngine/Include/GameEngine.vcxproj.filters
+*.ipch
+Engine/Bin/GameEngine.lib
+Engine/Bin/GameEngine32_Debug.lib
+GameClient/Bin/GameClient_Debug.lib
+GameClient/Bin/GameEngine.lib
+GameClient/Bin/GameEngine32_Debug.lib
+GameEditor/Bin/GameEditor_Debug.lib
+GameEditor/Bin/GameEngine.lib
+GameEditor/Bin/GameEngine32_Debug.lib
+GameEngine/Bin/GameEngine32_Debug.lib
+GameEngine/Bin/GameEngine.lib
+Server/Bin/GameEngine.lib
+Server/Bin/GameEngine32_Debug.lib
+Server/Bin/GameEngine_Debug.lib

@@ -6,7 +6,7 @@
 #define MOUSE_RIGHT	0xfe
 #define MOUSE_WHEEL	0xff
 
-enum KEY_TYPE
+enum class KEY_TYPE
 {
 	KT_DOWN,
 	KT_PRESS,
@@ -14,7 +14,7 @@ enum KEY_TYPE
 	KT_END
 };
 
-enum KEY_UNION
+enum class KEY_UNION
 {
 	KU_CTRL,
 	KU_ALT,
@@ -63,14 +63,14 @@ typedef struct _tagKeyInfo
 typedef struct _tagActionKey
 {
 	PKeyInfo	pInfo;
-	bool		bUnion[KU_END];
+	bool		bUnion[(int)KEY_UNION::KU_END];
 	bool		bPush;
 	float		fPushTime;
 
 	_tagActionKey()
 	{
 		pInfo = nullptr;
-		memset(bUnion, 0, sizeof(bool) * KU_END);
+		memset(bUnion, 0, sizeof(bool) *(int)KEY_UNION::KU_END);
 		bPush = false;
 	}
 }ActionKey, *PActionKey;
@@ -85,14 +85,21 @@ typedef struct _tagActionFunc
 {
 	std::function<void(const std::string&,KEY_TYPE, float, float)>	pFunc;
 	class CInputObj*								pObj;
+
+	_tagActionFunc()	:
+		pFunc(nullptr)
+		, pObj(nullptr)
+	{
+
+	}
 }ActionFunc, *PActionFunc;
 
 typedef struct _tagBindAction
 {
 	std::string								strTag;
 	std::vector<ActionKey>					vecKey;
-	std::vector<ActionFunc>					vecFunc[KT_END];
-	std::vector<std::function<void(float)>>	vecDFunc[KT_END];
+	std::vector<ActionFunc>					vecFunc[(int)KEY_TYPE::KT_END];
+	std::vector<std::function<void(float)>>	vecDFunc[(int)KEY_TYPE::KT_END];
 }BindAction, *PBindAction;
 
 typedef struct _tagAxisKey
@@ -194,7 +201,7 @@ public:
 		tFunc.pFunc = std::bind(pFunc, pObj, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);
 		tFunc.pObj = pObj;
 
-		pAction->vecFunc[eType].push_back(tFunc);
+		pAction->vecFunc[(int)eType].push_back(tFunc);
 	}
 
 	void AddActionBind(const std::string& strTag, KEY_TYPE eType, void(*pFunc)(float));
@@ -210,7 +217,7 @@ public:
 			pAction->strTag = strTag;
 		}
 
-		pAction->vecDFunc[eType].push_back(std::bind(pFunc, pObj, std::placeholders::_1));
+		pAction->vecDFunc[(int)eType].push_back(std::bind(pFunc, pObj, std::placeholders::_1));
 	}
 
 	void DeleteActionKey(const std::string& strTag);

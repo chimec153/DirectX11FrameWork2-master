@@ -20,6 +20,7 @@ public:
 
 public:
     virtual bool Init();
+    virtual void Start();
 
 };
 

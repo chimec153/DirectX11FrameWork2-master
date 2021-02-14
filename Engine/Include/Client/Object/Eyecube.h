@@ -28,6 +28,7 @@ class CEyecube :
     public CSoulMonster
 {
     friend class CScene;
+    friend class CBossManager;
 
 private:
     CEyecube();
@@ -39,7 +40,9 @@ private:
     bool            m_bTurned;
     float           m_fTurnTime;
     static float           m_fTurnMax;
+#ifdef _DEBUG
     class CUIFont* m_pXText;
+#endif
     float           m_fDelay;
     static float           m_fDelayMax;
     float           m_fAngleX;
@@ -56,11 +59,13 @@ private:
     int             m_iRotate;
     class CMesh2DComponent* m_pShadow;
     CUBE_AXIS           m_eX;
+#ifdef _DEBUG
     class CUIFont* m_pStage;
     class CUIFont* m_pTurnText;
     class CUIFont* m_pX;
     class CUIFont* m_pTurn;
     class CUIFont* m_pDelay;
+#endif
     bool            m_bAirRotDown;
     bool            m_bAir;
     class CColliderOBB2D* m_pCylinderBody;
@@ -119,5 +124,12 @@ public:
     void EffectClose(float);
     void EffectLaser(float);
     void EffectLaserCharge(float);
+
+public:
+    void SpawnWindow();
+
+public:
+    void DisableCollider(float);
+    void EnableCollider(float);
 };
 

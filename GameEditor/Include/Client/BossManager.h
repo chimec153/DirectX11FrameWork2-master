@@ -38,6 +38,14 @@ public:
 	{
 		m_iSlot = iSlot;
 	}
+	int GetSlot()	const
+	{
+		return m_iSlot;
+	}
+	void SetSaved()
+	{
+		m_bSave = true;
+	}
 
 public:
 	bool Init();

@@ -23,6 +23,7 @@ public:
 	COMPONENT_TYPE GetType()	const;
 	class CLayer* GetLayer()	const;
 	class CScene* GetScene()	const;
+	void DeleteLayer();
 
 protected:
 	bool		m_bStart;
@@ -44,5 +45,8 @@ public:
 	virtual CComponent* Clone() = 0;
 	virtual void Save(FILE* pFile);
 	virtual void Load(FILE* pFile);
+
+public:
+	void SpawnWindow();
 };
 

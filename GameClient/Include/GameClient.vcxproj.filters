@@ -31,6 +31,9 @@
     <Filter Include="소스 파일\05. TinyXml">
       <UniqueIdentifier>{b86a6976-2884-46eb-9416-f8c09f14dc6a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="소스 파일\06. Network">
+      <UniqueIdentifier>{9847c427-e7bd-4d79-bdfc-737a9433d9f6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Engine\Include\Client\GameMode\ColossusMode.cpp">
@@ -153,6 +156,9 @@
     <ClCompile Include="..\..\Engine\Include\tinyxmlparser.cpp">
       <Filter>소스 파일\05. TinyXml</Filter>
     </ClCompile>
+    <ClCompile Include="Client\SocketManager.cpp">
+      <Filter>소스 파일\06. Network</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Client.h">
@@ -271,6 +277,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Engine\Include\tinyxml.h">
       <Filter>소스 파일\05. TinyXml</Filter>
+    </ClInclude>
+    <ClInclude Include="Client\SocketManager.h">
+      <Filter>소스 파일\06. Network</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

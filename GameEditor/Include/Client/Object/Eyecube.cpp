@@ -23,15 +23,19 @@
 #include "../BossManager.h"
 #include "Component/Sound.h"
 #include "../GameMode/EyeCubeMode.h"
+#include "Engine.h"
+#include "Scene/SceneManager.h"
 
-float CEyecube::m_fTurnMax = 0.5f;
-float CEyecube::m_fDelayMax = 0.15f;
+float CEyecube::m_fTurnMax = 0.25f;
+float CEyecube::m_fDelayMax = 0.4f;
 
 CEyecube::CEyecube()	:
 	m_eDir(DIR_8::U)
 	, m_bTurned(true)
 	, m_fTurnTime(0.f)
+#ifdef _DEBUG
 	, m_pXText(nullptr)
+#endif
 	, m_fDelay(0.15f)
 	, m_fAngleX(0.f)
 	, m_vNextQuat()
@@ -46,12 +50,14 @@ CEyecube::CEyecube()	:
 	, m_pLightMtrl(nullptr)
 	, m_iRotate(0)
 	, m_pShadow(nullptr)
-	, m_eX(CUBE_AXIS::R)
+	, m_eX(CUBE_AXIS::U)
+#ifdef _DEBUG
 	, m_pStage(nullptr)
 	, m_pTurnText(nullptr)
 	, m_pX(nullptr)
 	, m_pTurn(nullptr)
 	, m_pDelay(nullptr)
+#endif
 	, m_bAirRotDown(false)
 	, m_bAir(false)
 	, m_pCylinderBody(nullptr)
@@ -66,7 +72,9 @@ CEyecube::CEyecube(const CEyecube& obj)	:
 	, m_eDir(obj.m_eDir)
 	, m_bTurned(obj.m_bTurned)
 	, m_fTurnTime(0.f)
+#ifdef _DEBUG
 	, m_pXText((CUIFont*)FindSceneComponent("X"))
+#endif
 	, m_fDelay(obj.m_fDelay)
 	, m_fAngleX(obj.m_fAngleX)
 	, m_vNextQuat()
@@ -82,11 +90,13 @@ CEyecube::CEyecube(const CEyecube& obj)	:
 	, m_iRotate(0)
 	, m_pShadow((CMesh2DComponent*)FindSceneComponent("Shadow"))
 	, m_eX(obj.m_eX)
+#ifdef _DEBUG
 	, m_pStage((CUIFont*)FindSceneComponent("Stage"))
 	, m_pTurnText((CUIFont*)FindSceneComponent("Turned"))
 	, m_pX((CUIFont*)FindSceneComponent("Xaxis"))
 	, m_pTurn((CUIFont*)FindSceneComponent("Turn"))
 	, m_pDelay((CUIFont*)FindSceneComponent("Delay"))
+#endif
 	, m_bAirRotDown(false)
 	, m_bAir(false)
 	, m_pCylinderBody((CColliderOBB2D*)FindSceneComponent("CylinderBody"))
@@ -109,8 +119,9 @@ CEyecube::CEyecube(const CEyecube& obj)	:
 	m_pOC->SetCallBack(COLLISION_STATE::STAY, this, &CEyecube::ColEyeStay);
 	m_pOC->SetCallBack(COLLISION_STATE::END, this, &CEyecube::ColEyeEnd);
 
+#ifdef _DEBUG
 	m_pX->SetText(L"X: R");
-
+#endif
 	m_pFace->AddCallBack("Close", "Close", this, &CEyecube::EffectClose);
 
 	m_pFace->AddCallBack("Opening1", "Open", this, &CEyecube::EffectOpen);
@@ -122,7 +133,9 @@ CEyecube::CEyecube(const CEyecube& obj)	:
 
 CEyecube::~CEyecube()
 {
+#ifdef _DEBUG
 	SAFE_RELEASE(m_pXText);
+#endif
 	SAFE_RELEASE(m_pRC);
 	SAFE_RELEASE(m_pOC);
 	SAFE_RELEASE(m_pCube);
@@ -132,11 +145,13 @@ CEyecube::~CEyecube()
 	SAFE_RELEASE(m_pLight);
 	SAFE_RELEASE(m_pLightMtrl);
 	SAFE_RELEASE(m_pShadow);
+#ifdef _DEBUG
 	SAFE_RELEASE(m_pStage);
 	SAFE_RELEASE(m_pTurnText);
 	SAFE_RELEASE(m_pX);
 	SAFE_RELEASE(m_pTurn);
 	SAFE_RELEASE(m_pDelay);
+#endif
 	SAFE_RELEASE(m_pCylinderBody);
 	SAFE_RELEASE(m_pEft);
 	SAFE_RELEASE(m_pBGM);
@@ -144,16 +159,23 @@ CEyecube::~CEyecube()
 
 bool CEyecube::Init()
 {
+#ifdef _DEBUG
+	m_pInput->SetActionFunc<CEyecube>("P", KEY_TYPE::KT_DOWN, this, &CEyecube::Stop);
+	m_pInput->SetAxisFunc<CEyecube>("1", this, &CEyecube::RotX);
+	m_pInput->SetAxisFunc<CEyecube>("2", this, &CEyecube::RotY);
+	m_pInput->SetAxisFunc<CEyecube>("3", this, &CEyecube::RotZ);
+	m_pInput->SetAxisFunc<CEyecube>("4", this, &CEyecube::RotX);
+	m_pInput->SetAxisFunc<CEyecube>("5", this, &CEyecube::RotY);
+	m_pInput->SetAxisFunc<CEyecube>("6", this, &CEyecube::RotZ);
+#endif
+
 	m_pCube = CreateComponent<CSpriteComponent>("eyecube",
 		"IMG\\BOSS\\EYECUBE\\eyecube.obj", DATA_PATH, m_pScene->FindLayer("BackDefault"));
 
 	m_pCube->SetInheritScale(false);
 	m_pCube->SetRelativeScale(32.f, 32.f, 32.f);
 	m_pCube->CreateSprite("Idle", "EyeClosed", LOOP_OPTION::LOOP);
-	m_pCube->AddRenderState("ForeGround");
-
-	RotX(135.f, 1.f);
-	RotZ(-90.f, 1.f);
+	m_pCube->AddRenderState("DepthWriteForeGround");
 
 	SetRootComponent(m_pCube);
 
@@ -316,12 +338,16 @@ bool CEyecube::Init()
 	m_pFace->CreateSprite("Attack", "EyeAttack", LOOP_OPTION::ONCE_RETURN);
 
 	m_pFace->AddNotify("Close", "Close", 0);
+	m_pFace->AddNotify("ColliderDisable", "Close", 1);
 
 	m_pFace->AddCallBack("Close", "Close", this, &CEyecube::EffectClose);
+	m_pFace->AddCallBack("Close", "Close", this, &CEyecube::DisableCollider);
 
 	m_pFace->AddNotify("Opening1", "Open", 0);
+	m_pFace->AddNotify("ColliderEnable", "Open", 1);
 
 	m_pFace->AddCallBack("Opening1", "Open", this, &CEyecube::EffectOpen);
+	m_pFace->AddCallBack("Opening1", "Open", this, &CEyecube::EnableCollider);
 
 	m_pFace->AddNotify("Light", "Light", 0);
 
@@ -331,7 +357,7 @@ bool CEyecube::Init()
 
 	m_pFace->AddCallBack("Attack", "Attack", this, &CEyecube::EffectLaser);
 
-	//m_pFace->AddRenderState("ForeGround");
+	m_pFace->AddRenderState("DepthWriteForeGround");
 
 	m_pOC = CreateComponent<CColliderOBB2D>("EyeBody", m_pLayer);
 
@@ -344,13 +370,10 @@ bool CEyecube::Init()
 	m_pOC->SetCallBack(COLLISION_STATE::STAY, this, &CEyecube::ColEyeStay);
 	m_pOC->SetCallBack(COLLISION_STATE::END, this, &CEyecube::ColEyeEnd);
 
-	m_pX->SetText(L"X: R");
 	m_pFace->AddChild(m_pOC);
 
 	m_pCube->AddChild(m_pFace);
-
-	RotX(45.f, 1.f);
-
+#ifdef _DEBUG
 	m_pXText = CreateComponent<CUIFont>("X", m_pLayer);
 
 	m_pXText->SetSceneComType(SCENE_COMPONENT_TYPE::SCT_2D);
@@ -382,7 +405,6 @@ bool CEyecube::Init()
 	m_pStage->AddRelativePos(0.f, 480.f, 0.f);
 
 	m_pCube->AddChild(m_pStage);
-
 	m_pTurnText = CreateComponent<CUIFont>("Turned", m_pLayer);
 
 	m_pTurnText->SetSceneComType(SCENE_COMPONENT_TYPE::SCT_2D);
@@ -445,6 +467,8 @@ bool CEyecube::Init()
 
 	m_pCube->AddChild(m_pDelay);
 
+
+#endif
 	m_pRC = CreateComponent<CColliderRect>("CubeBody", m_pLayer);
 
 	m_pRC->SetExtent(64.f, 64.f);
@@ -474,7 +498,7 @@ bool CEyecube::Init()
 
 	CMaterial* pShadowMtrl = m_pShadow->GetMaterial();
 
-	pShadowMtrl->SetDiffuseColor(1.f, 1.f, 1.f, 0.5f);
+	pShadowMtrl->SetDiffuseColor(0.f, 0.f, 0.f, 0.5f);
 
 	SAFE_RELEASE(pShadowMtrl);
 
@@ -497,6 +521,10 @@ bool CEyecube::Init()
 	m_pBGM->SetSceneComType(SCENE_COMPONENT_TYPE::SCT_UI);
 
 	m_pCube->AddChild(m_pBGM);
+
+	RotZ(90.f, 1.f);
+	RotY(90.f, 1.f);
+	RotX(-45.f, 1.f);
 
 	return true;
 }
@@ -521,9 +549,13 @@ void CEyecube::Update(float fTime)
 	swprintf_s(strDelay, L"Delay: %.2f", m_fDelay);
 	swprintf_s(strTurn, L"Turn: %.2f", m_fTurnTime);
 
+
+#ifdef _DEBUG
 	m_pDelay->SetText(strDelay);
 	m_pTurn->SetText(strTurn);
 
+
+#endif
 	if (m_iRotate == (int)EYE_STAGE::ATTACK )
 	{
 		if (m_fDelay < -m_fDelayMax)
@@ -551,6 +583,10 @@ void CEyecube::Update(float fTime)
 			if (m_eX == CUBE_AXIS::D)
 			{
 				AddWorldPos(0.f, 256.f * fTurnTime, 0.f);
+
+				m_pShadow->AddRelativePos(0.f, -256.f * fTurnTime, 0.f);
+
+				m_pShadow->AddRelativeScale(-32.f * fTurnTime, -32.f * fTurnTime, 0.f);
 
 				Slerp(m_vPrevQuat, m_vNextQuat, (m_fDelay + m_fTurnMax * 2.f + m_fDelayMax) / m_fTurnMax/2.f);
 
@@ -644,9 +680,14 @@ void CEyecube::Update(float fTime)
 			{
 				AddWorldPos(0.f, -256.f * fTurnTime, 0.f);
 
-				Slerp(m_vPrevQuat, m_vNextQuat, (m_fDelay + m_fDelayMax) / m_fDelayMax /2.f);
+				m_pShadow->AddRelativePos(0.f, 256.f * fTurnTime, 0.f);
 
+				m_pShadow->AddRelativeScale(32.f * fTurnTime, 32.f * fTurnTime, 0.f);
+
+				Slerp(m_vPrevQuat, m_vNextQuat, (m_fDelay + m_fDelayMax) / m_fDelayMax /2.f);
+#ifdef _DEBUG
 				m_pX->SetText(L"X: Near");
+#endif
 			}
 		}
 	}
@@ -663,8 +704,7 @@ void CEyecube::Update(float fTime)
 
 	State eStat = GetState();
 
-	if (eStat != State::STOP &&
-		eStat != State::DIE)
+	if (eStat == State::ATTACK)
 	{
 		CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
 
@@ -687,13 +727,13 @@ void CEyecube::Update(float fTime)
 	CTransform* pCom = m_pRootComponent->GetTransform();
 
 	Vector4 vQ = pCom->GetQuarternion();
-
+#ifdef _DEBUG
 	TCHAR strX[32] = {};
 
 	swprintf_s(strX, L"Q:%.2f,\t%.2f,\t%.2f,\t%.2f", vQ.x, vQ.y, vQ.z, vQ.w);
 
 	m_pXText->SetText(strX);
-
+#endif
 	if (m_bTurned)
 	{
 		State eStat = GetState();
@@ -724,8 +764,9 @@ void CEyecube::Update(float fTime)
 						m_pRC->Enable(true);
 
 						((CTileMode*)m_pScene->GetGameMode())->ShakeCam(200.f,7.5f);
-
+#ifdef _DEBUG
 						m_pX->SetText(L"Near");
+#endif
 						m_eX = CUBE_AXIS::N;
 
 						Slerp(m_vPrevQuat, m_vNextQuat, 1.f);
@@ -751,20 +792,28 @@ void CEyecube::Update(float fTime)
 							switch (m_eX)
 							{
 							case CUBE_AXIS::N:
-								m_eX = CUBE_AXIS::U;
+								m_eX = CUBE_AXIS::U; 
+#ifdef _DEBUG
 								m_pX->SetText(L"X: U");
+#endif
 								break;
 							case CUBE_AXIS::F:
 								m_eX = CUBE_AXIS::D;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: D");
+#endif
 								break;
 							case CUBE_AXIS::U:
 								m_eX = CUBE_AXIS::F;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: F");
+#endif
 								break;
 							case CUBE_AXIS::D:
 								m_eX = CUBE_AXIS::N;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: N");
+#endif
 								break;
 							}
 						}
@@ -781,19 +830,27 @@ void CEyecube::Update(float fTime)
 							{
 							case CUBE_AXIS::N:
 								m_eX = CUBE_AXIS::D;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: D");
+#endif
 								break;
 							case CUBE_AXIS::F:
 								m_eX = CUBE_AXIS::U;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: U");
+#endif
 								break;
 							case CUBE_AXIS::U:
 								m_eX = CUBE_AXIS::N;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: N");
+#endif
 								break;
 							case CUBE_AXIS::D:
 								m_eX = CUBE_AXIS::F;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: F");
+#endif
 								break;
 							}
 						}
@@ -813,19 +870,27 @@ void CEyecube::Update(float fTime)
 							{
 							case CUBE_AXIS::L:
 								m_eX = CUBE_AXIS::D;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: D");
+#endif
 								break;
 							case CUBE_AXIS::R:
 								m_eX = CUBE_AXIS::U;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: U");
+#endif
 								break;
 							case CUBE_AXIS::U:
 								m_eX = CUBE_AXIS::L;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: L");
+#endif
 								break;
 							case CUBE_AXIS::D:
 								m_eX = CUBE_AXIS::R;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: R");
+#endif
 								break;
 							}
 						}
@@ -842,19 +907,27 @@ void CEyecube::Update(float fTime)
 							{
 							case CUBE_AXIS::L:
 								m_eX = CUBE_AXIS::U;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: U");
+#endif
 								break;
 							case CUBE_AXIS::R:
 								m_eX = CUBE_AXIS::D;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: D");
+#endif
 								break;
 							case CUBE_AXIS::U:
 								m_eX = CUBE_AXIS::R;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: R");
+#endif
 								break;
 							case CUBE_AXIS::D:
 								m_eX = CUBE_AXIS::L;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: L");
+#endif
 								break;
 							}
 						}
@@ -877,19 +950,27 @@ void CEyecube::Update(float fTime)
 							{
 							case CUBE_AXIS::L:
 								m_eX = CUBE_AXIS::U;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: U");
+#endif
 								break;
 							case CUBE_AXIS::R:
 								m_eX = CUBE_AXIS::D;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: D");
+#endif
 								break;
 							case CUBE_AXIS::U:
 								m_eX = CUBE_AXIS::R;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: R");
+#endif
 								break;
 							case CUBE_AXIS::D:
 								m_eX = CUBE_AXIS::L;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: L");
+#endif
 								break;
 							}
 						}
@@ -906,19 +987,27 @@ void CEyecube::Update(float fTime)
 							{
 							case CUBE_AXIS::L:
 								m_eX = CUBE_AXIS::D;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: D");
+#endif
 								break;
 							case CUBE_AXIS::R:
 								m_eX = CUBE_AXIS::U;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: U");
+#endif
 								break;
 							case CUBE_AXIS::U:
 								m_eX = CUBE_AXIS::L;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: L");
+#endif
 								break;
 							case CUBE_AXIS::D:
 								m_eX = CUBE_AXIS::R;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: R");
+#endif
 								break;
 							}
 						}
@@ -938,19 +1027,27 @@ void CEyecube::Update(float fTime)
 							{
 							case CUBE_AXIS::N:
 								m_eX = CUBE_AXIS::D;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: D");
+#endif
 								break;
 							case CUBE_AXIS::F:
 								m_eX = CUBE_AXIS::U;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: U");
+#endif
 								break;
 							case CUBE_AXIS::U:
 								m_eX = CUBE_AXIS::N;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: N");
+#endif
 								break;
 							case CUBE_AXIS::D:
 								m_eX = CUBE_AXIS::F;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: F");
+#endif
 								break;
 							}
 						}
@@ -967,19 +1064,27 @@ void CEyecube::Update(float fTime)
 							{
 							case CUBE_AXIS::N:
 								m_eX = CUBE_AXIS::U;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: U");
+#endif
 								break;
 							case CUBE_AXIS::F:
 								m_eX = CUBE_AXIS::D;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: D");
+#endif
 								break;
 							case CUBE_AXIS::U:
 								m_eX = CUBE_AXIS::F;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: F");
+#endif
 								break;
 							case CUBE_AXIS::D:
 								m_eX = CUBE_AXIS::N;
+#ifdef _DEBUG
 								m_pX->SetText(L"X: N");
+#endif
 								break;
 							}
 						}
@@ -987,7 +1092,9 @@ void CEyecube::Update(float fTime)
 				}
 
 				m_bTurned = false;
+#ifdef _DEBUG
 				m_pTurnText->SetText(L"Turned: FALSE");
+#endif
 
 				static int iCount = 0;
 
@@ -1030,7 +1137,9 @@ void CEyecube::Update(float fTime)
 
 			m_bTurned = true;
 
+#ifdef _DEBUG
 			m_pTurnText->SetText(L"Turned: TRUE");
+#endif
 
 			static int iCount = 0;
 
@@ -1048,20 +1157,28 @@ void CEyecube::Update(float fTime)
 			{
 			case EYE_STAGE::CLOSE:
 				m_pFace->ChangeSequence("Opening1");
+#ifdef _DEBUG
 				m_pStage->SetText(L"OPEN1");
+#endif
 				break;
 			case EYE_STAGE::OPEN1:
 				m_pFace->ChangeSequence("Opening2");
+#ifdef _DEBUG
 				m_pStage->SetText(L"OPEN2");
+#endif
 				break;
 			case EYE_STAGE::OPEN2:
 				m_pFace->ChangeSequence("Light");
+#ifdef _DEBUG
 				m_pStage->SetText(L"LIGHT");
+#endif
 				break;
 			case EYE_STAGE::LIGHT:
 				m_pFace->ChangeSequence("Attack");
 				m_pFace->SetDefaultSeq("Close");
+#ifdef _DEBUG
 				m_pStage->SetText(L"ATTACK");
+#endif
 
 				m_fDelay = -m_fTurnMax * 2 - m_fDelayMax;
 
@@ -1088,7 +1205,9 @@ void CEyecube::Update(float fTime)
 
 				m_pRedCylinder->Enable(false);
 				m_iRotate = (int)EYE_STAGE::CLOSE;
+#ifdef _DEBUG
 				m_pStage->SetText(L"OPEN1");
+#endif
 				break;
 			}
 
@@ -1150,7 +1269,8 @@ void CEyecube::Update(float fTime)
 			break;
 			case DIR_8::R:
 			{
-				AddWorldPos( 64.f * fTime / m_fTurnMax, cosf(DegToRad(fTurnTime * 180.f)) * 0.036f, 0.f);
+				AddWorldPos( 64.f * fTime / m_fTurnMax, cosf(DegToRad(fTurnTime * 180.f)) * fTime * 160.f, 0.f);
+				m_pShadow->AddRelativePos(0.f, cosf(DegToRad(fTurnTime * 180.f))* fTime * -160.f, 0.f);
 			}
 			break;
 			case DIR_8::D:
@@ -1160,7 +1280,8 @@ void CEyecube::Update(float fTime)
 			break;
 			case DIR_8::L:
 			{
-				AddWorldPos(-64.f * fTime / m_fTurnMax, cosf(DegToRad(fTurnTime * 180.f))* 0.036f, 0.f);
+				AddWorldPos(-64.f * fTime / m_fTurnMax, cosf(DegToRad(fTurnTime * 180.f))* fTime * 160.f, 0.f);
+				m_pShadow->AddRelativePos(0.f, cosf(DegToRad(fTurnTime * 180.f))* fTime * -160.f, 0.f);
 			}
 			break;
 			}
@@ -1181,6 +1302,11 @@ void CEyecube::Collision(float fTime)
 void CEyecube::PreRender(float fTime)
 {
 	CSoulMonster::PreRender(fTime);
+
+	if (GET_SINGLE(CEngine)->IsImgui())
+	{
+		SpawnWindow();
+	}
 }
 
 void CEyecube::Render(float fTime)
@@ -1206,6 +1332,34 @@ void CEyecube::Save(FILE* pFile)
 void CEyecube::Load(FILE* pFile)
 {
 	CSoulMonster::Load(pFile);
+
+#ifdef _DEBUG
+	m_pXText = (CUIFont*)FindSceneComponent("X");
+#endif
+	m_pRC = (CColliderRect*)FindSceneComponent("CubeBody");
+	m_pOC = (CColliderOBB2D*)FindSceneComponent("EyeBody");
+	m_pCube = (CSpriteComponent*)FindSceneComponent("eyecube");
+	m_pCylinder = (CMesh2DComponent*)FindSceneComponent("cylinder");
+	m_pRedCylinder = (CMesh2DComponent*)FindSceneComponent("redcylinder");
+	m_pFace = (CSpriteComponent*)FindSceneComponent("eyeface");
+	m_pLight = (CSpriteComponent*)FindSceneComponent("Light");
+	m_pShadow = (CMesh2DComponent*)FindSceneComponent("Shadow");
+#ifdef _DEBUG
+	m_pStage = (CUIFont*)FindSceneComponent("Stage");
+	m_pTurnText = (CUIFont*)FindSceneComponent("Turned");
+	m_pX = (CUIFont*)FindSceneComponent("Xaxis");
+	m_pTurn = (CUIFont*)FindSceneComponent("Turn");
+	m_pDelay = (CUIFont*)FindSceneComponent("Delay");
+#endif
+	m_pCylinderBody = (CColliderOBB2D*)FindSceneComponent("CylinderBody");
+	m_pEft = (CSound*)FindSceneComponent("Effect");
+	m_pBGM = (CSound*)FindSceneComponent("BGM");
+	m_pLightMtrl = m_pLight->GetMaterial();
+
+	CScene* pScene = GET_SINGLE(CSceneManager)->GetScene();
+	m_pShadow->SetLayer(pScene->FindLayer("Ground"));
+	m_pFace->SetLayer(pScene->FindLayer("BackDefault"));
+	m_pCube->SetLayer(pScene->FindLayer("BackDefault"));
 }
 
 void CEyecube::ColInit(CCollider* pSrc, CCollider* pDst, float fTime)
@@ -1214,11 +1368,14 @@ void CEyecube::ColInit(CCollider* pSrc, CCollider* pDst, float fTime)
 
 	if (strDst == "BulletBody")
 	{
-		State eStat = GetState();
-
-		if (eStat == State::IDLE)
+		if (((CBullet*)pDst->GetObj())->GetSpeed())
 		{
-			SetState(State::ATTACK);
+			State eStat = GetState();
+
+			if (eStat == State::IDLE)
+			{
+				SetState(State::ATTACK);
+			}
 		}
 	}
 
@@ -1258,33 +1415,63 @@ void CEyecube::ColEyeInit(CCollider* pSrc, CCollider* pDst, float fTime)
 
 			if (fSpeed != 0.f)
 			{
-				SetState(State::STOP);
-				pBullet->SetSpeed(0.f);
-				pBullet->ChangeSprite("ArrowStop");
-				pBullet->SetFix(true);
-				pBullet->SetFixObj(this);
-
 				Vector3 vRot = pBullet->GetWorldRot();
 
 				CSound* pSnd = pBullet->FindComByType<CSound>();
 
-				if (vRot.z < 135.f && vRot.x > 45.f)
+				if (vRot.z >= -135.f &&
+					vRot.z <= -45.f &&
+					m_eX == CUBE_AXIS::L)
 				{
+					SetState(State::STOP);
+
+					pBullet->SetSpeed(0.f);
+					pBullet->ChangeSprite("ArrowStop");
+					pBullet->SetFix(true);
+					pBullet->SetFixObj(this);
+
 					pSnd->SetSound("ArrowImpact1");
 				}
 
-				else if (vRot.z > -45.f && vRot.x < 45.f)
+				else if (vRot.z <= 45.f &&
+					vRot.z >= -45.f &&
+					m_eX == CUBE_AXIS::N)
 				{
+					SetState(State::STOP);
+
+					pBullet->SetSpeed(0.f);
+					pBullet->ChangeSprite("ArrowStop");
+					pBullet->SetFix(true);
+					pBullet->SetFixObj(this);
+
 					pSnd->SetSound("ArrowImpact2");
 				}
 
-				else if (vRot.z > -135.f && vRot.x < -45.f)
+				else if (vRot.z <= 135.f &&
+					vRot.z >= 45.f &&
+					m_eX == CUBE_AXIS::R)
 				{
+					SetState(State::STOP);
+
+					pBullet->SetSpeed(0.f);
+					pBullet->ChangeSprite("ArrowStop");
+					pBullet->SetFix(true);
+					pBullet->SetFixObj(this);
+
 					pSnd->SetSound("ArrowImpact3");
 				}
 
-				else
+				else if ((vRot.z >= 135.f ||
+					vRot.z <= -135.f) &&
+					m_eX == CUBE_AXIS::F)
 				{
+					SetState(State::STOP);
+
+					pBullet->SetSpeed(0.f);
+					pBullet->ChangeSprite("ArrowStop");
+					pBullet->SetFix(true);
+					pBullet->SetFixObj(this);
+
 					pSnd->SetSound("ArrowImpact4");
 				}
 
@@ -1353,6 +1540,26 @@ void CEyecube::EffectLaserCharge(float)
 	m_pEft->SetSoundAndPlay("LaserCharge");
 }
 
+void CEyecube::SpawnWindow()
+{
+	if (ImGui::Begin("Eyecube"))
+	{
+		ImGui::SliderFloat("TurnTime", &m_fTurnMax, 0.f, 1.f);
+		ImGui::SliderFloat("DelayMax", &m_fDelayMax, 0.f, 1.f);
+	}
+	ImGui::End();
+}
+
+void CEyecube::DisableCollider(float)
+{
+	m_pOC->Enable(false);
+}
+
+void CEyecube::EnableCollider(float)
+{
+	m_pOC->Enable(true);
+}
+
 void CEyecube::SetState(State eStat)
 {
 	switch (eStat)
@@ -1383,6 +1590,11 @@ void CEyecube::SetState(State eStat)
 		break;
 	case State::STOP:
 	{
+		m_iRotate = (int)EYE_STAGE::END;
+
+		m_pCylinder->Enable(false);
+		m_pRedCylinder->Enable(false);
+
 		m_pLightMtrl->SetDiffuseColor(1.f, 1.f, 1.f, 0.f);
 
 		((CTileMode*)m_pScene->GetGameMode())->SetFadeColor(1.f, 1.f, 1.f);
@@ -1404,6 +1616,12 @@ void CEyecube::SetState(State eStat)
 		m_pBGM->SetSound("Eyecube");
 		m_pBGM->Stop();
 
+		m_pFace->ChangeSequence("Idle");
+
+		m_pCube->SetShader("GrayShader");
+		m_pFace->SetShader("GrayShader");
+		m_pLight->SetShader("GrayShader");
+
 	}
 		break;
 
@@ -1413,6 +1631,8 @@ void CEyecube::SetState(State eStat)
 		GET_SINGLE(CBossManager)->AddMonster(this);
 
 		((CEyeCubeMode*)m_pScene->GetGameMode())->Clear();
+
+		m_pLight->Enable(false);
 		break;
 	}
 	CSoulMonster::SetState(eStat);

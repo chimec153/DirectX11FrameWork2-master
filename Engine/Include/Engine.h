@@ -23,6 +23,7 @@ public:
 	HWND GetHandle()	const;
 	void SetImgui(bool bEnable);
 	bool IsImgui()	const;
+	bool IsLoop()	const;
 
 private:
 	std::function<void(float)>		m_EditorUpdate;

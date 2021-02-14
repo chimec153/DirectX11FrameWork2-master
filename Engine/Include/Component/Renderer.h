@@ -25,12 +25,24 @@ public:
     void SetMesh(class CMesh* pMesh);
     class CMaterial* GetMaterial()	const;
     void SetMaterial(class CMaterial* pMaterial);
+    void SetMaterial(const std::string& strTag);
     void SetShader(const std::string& strTag);
     void SetShader(class CShader* pShader);
+    class CShader* GetShader()  const;
     void SetState();
     void ResetState();
     const std::vector<class CRenderState*>& GetVecRenderState() const;
     void DeleteRenderState(const std::string& strKey);
+
+public:
+    void SetTexture(REGISTER_TYPE eType, const std::string& strTag, int iRegister = 0, int iCount = 1,
+    unsigned int iType = (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL | (int)SHADER_CBUFFER_TYPE::CBUFFER_VERTEX);
+      void SetTexture(REGISTER_TYPE eType, class CTexture* pTex, int iRegister = 0, int iCount = 1,
+          unsigned int iType = (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL | (int)SHADER_CBUFFER_TYPE::CBUFFER_VERTEX);
+      void SetTexture(REGISTER_TYPE eType, const std::string& strTag, const TCHAR* pFileName, const std::string& strPathName = TEXTURE_PATH, int iRegister = 0, int iCount = 1,
+          unsigned int iType = (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL | (int)SHADER_CBUFFER_TYPE::CBUFFER_VERTEX);
+      void SetTextureFromFullPath(REGISTER_TYPE eType, const std::string& strTag, const TCHAR* pFullPath, int iRegister = 0, int iCount = 1,
+          unsigned int iType = (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL | (int)SHADER_CBUFFER_TYPE::CBUFFER_VERTEX);
 
 private:
     class CRenderState* FindState(const std::string& strKey);
@@ -46,5 +58,8 @@ public:
     virtual CRenderer* Clone();
     virtual void Save(FILE* pFile);
     virtual void Load(FILE* pFile);
+
+public:
+    void SpawnWindow();
 };
 

@@ -494,6 +494,25 @@ bool CShaderManager::Init()
 
 	SAFE_RELEASE(pAngleShader);
 
+	CGraphicShader* pGray = CreateShader<CGraphicShader>("GrayShader");
+
+	pGray->LoadVertexShader("StandardSpriteVS", TEXT("VertexShader.fx"));
+	pGray->LoadPixelShader("GrayPS", TEXT("VertexShader.fx"));
+
+	pGray->AddInputLayoutDesc("POSITION", 0,
+		DXGI_FORMAT_R32G32B32_FLOAT, 0, 12,
+		D3D11_INPUT_PER_VERTEX_DATA, 0);
+	pGray->AddInputLayoutDesc("TEXCOORD", 0,
+		DXGI_FORMAT_R32G32_FLOAT, 0, 8,
+		D3D11_INPUT_PER_VERTEX_DATA, 0);
+	pGray->AddInputLayoutDesc("COLOR", 0,
+		DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 16,
+		D3D11_INPUT_PER_VERTEX_DATA, 0);
+
+	pGray->CreateInputLayout();
+
+	SAFE_RELEASE(pGray);
+
 	CreateCBuffer("Transform", sizeof(TransformCBuffer), 0, 
 		(int)SHADER_CBUFFER_TYPE::CBUFFER_VERTEX
 		|(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY);

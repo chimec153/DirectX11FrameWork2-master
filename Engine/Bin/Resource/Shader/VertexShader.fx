@@ -40,14 +40,17 @@ PS_OUTPUT_COLOR StandardPS(VS_OUTPUT input)
 	if (output.vColor.a == 0.f)
 		clip(-1);
 
-	float3 gray = dot(float3(output.vColor.r, output.vColor.g, output.vColor.b), 
-		float3(0.3333f, 0.3333f, 0.3333f));
+	else if (g_iGray)
+	{
+		float3 gray = dot(float3(output.vColor.r, output.vColor.g, output.vColor.b),
+			float3(0.3333f, 0.3333f, 0.3333f));
 
-	float4 vGrayColor = float4(gray, output.vColor.a);
+		float4 vGrayColor = float4(gray, output.vColor.a);
 
-	float4 vColor = lerp(output.vColor, vGrayColor, g_fGray);
+		float4 vColor = lerp(output.vColor, vGrayColor, g_fGray);
 
-	output.vColor = vColor;
+		output.vColor = vColor;
+	}
 
 	return output;
 }
@@ -154,6 +157,27 @@ PS_OUTPUT_COLOR PS(VertexOut input)
 	float4 vColor = lerp(output.vColor, vGrayColor, g_fGray);
 
 	output.vColor = vColor;
+
+	return output;
+}
+
+PS_OUTPUT_COLOR GrayPS(VS_OUTPUT input)
+{
+	PS_OUTPUT_COLOR output = (PS_OUTPUT_COLOR)0;
+
+	output.vColor = gDiffuseMap.Sample(g_sPoint, input.vUV) * g_vDif;
+
+	if (output.vColor.a == 0.f)
+		clip(-1);
+
+		float3 gray = dot(float3(output.vColor.r, output.vColor.g, output.vColor.b),
+			float3(0.3333f, 0.3333f, 0.3333f));
+
+		float4 vGrayColor = float4(gray, output.vColor.a);
+
+		float4 vColor = lerp(output.vColor, vGrayColor, 1.f);
+
+		output.vColor = vColor;
 
 	return output;
 }

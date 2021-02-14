@@ -11,7 +11,7 @@ private:
 	virtual ~CSound();
 
 private:
-	std::string		m_strName;
+	std::string		m_strSound;
 	PSOUNDINFO		m_pSound;
 	float			m_fMax;
 	float			m_fMin;

@@ -61,7 +61,7 @@ bool CFire::Init()
     m_pFire->SetWorldScale(64.f, 64.f, 0.);
     m_pFire->SetPivot(0.5f, 0.f, 0.f);
     m_pFire->CreateSprite("Idle", "FireBig", LOOP_OPTION::LOOP, 16.f);
-    m_pFire->SetWorldPos(464.f, 480.f, 0.f);
+    m_pFire->SetWorldPos(464.f, 464.f, 0.f);
 
     SetRootComponent(m_pFire);
 
@@ -70,7 +70,7 @@ bool CFire::Init()
     m_pFire->AddChild(m_pRC);
 
     m_pRC->SetExtent(32.f, 32.f);
-    m_pRC->SetRelativePos(0.f, 32.f, 0.f);
+    m_pRC->SetRelativePos(0.f, 16.f, 0.f);
 
     CScene* pScene = GET_SINGLE(CSceneManager)->GetNextScene();
 
@@ -145,16 +145,16 @@ void CFire::Update(float fTime)
         if (m_fScale >= m_fScaleMax)
         {
             m_bOn = false;
-            SetWorldScale(64.f, 64.f, 0.f);
-            m_pLight->SetWorldScale(64.f, 64.f, 0.f);
-            m_pLightBig->SetWorldScale(128.f, 128.f, 0.);
+            SetWorldScale(32.f, 32.f, 0.f);
+            m_pLight->SetWorldScale(32.f, 32.f, 0.f);
+            m_pLightBig->SetWorldScale(64.f, 64.f, 0.);
         }
 
         else
         {
-            SetWorldScale(64.f * m_fScale, 64.f * m_fScale, 0.f);
-            m_pLight->SetWorldScale(64.f * m_fScale, 64.f * m_fScale, 0.f);
-            m_pLightBig->SetWorldScale(128.f * m_fScale, 128.f * m_fScale, 0.);
+            SetWorldScale(32.f * m_fScale, 32.f * m_fScale, 0.f);
+            m_pLight->SetWorldScale(32.f * m_fScale, 32.f * m_fScale, 0.f);
+            m_pLightBig->SetWorldScale(64.f * m_fScale, 64.f * m_fScale, 0.);
         }
     }
 
@@ -173,9 +173,9 @@ void CFire::Update(float fTime)
 
         else
         {
-            SetWorldScale(64.f * m_fScale, 64.f * m_fScale, 0.f);
-            m_pLight->SetWorldScale(64.f * m_fScale, 64.f * m_fScale, 0.f);
-            m_pLightBig->SetWorldScale(128.f * m_fScale, 128.f * m_fScale, 0.);
+            SetWorldScale(32.f * m_fScale, 32.f * m_fScale, 0.f);
+            m_pLight->SetWorldScale(32.f * m_fScale, 32.f * m_fScale, 0.f);
+            m_pLightBig->SetWorldScale(64.f * m_fScale, 64.f * m_fScale, 0.);
         }
     }
 }
@@ -277,13 +277,9 @@ void CFire::StartFire()
 
     SetWorldScale(0.f, 0.f, 0.f);
 
-    m_pBGM->SetSound("BunsenLoop");
-    m_pBGM->SetVol(1.f);
-    m_pBGM->Play(0.f);
+    m_pBGM->SetSoundAndPlay("BunsenLoop");
 
-    m_pEft->SetSound("BunsenIgnite");
-    m_pEft->SetVol(1.f);
-    m_pEft->Play(0.f);
+    m_pEft->SetSoundAndPlay("BunsenIgnite");
 }
 
 void CFire::EndFire()

@@ -90,21 +90,21 @@ void CUIButton::SetColor(BUTTON_STATE eStat, const Vector4& vClr)
 {
 	m_vecInfo[(int)eStat]->vClr = vClr;
 
-	m_pMaterial->SetDiffuseColor(m_vecInfo[(int)eStat]->vClr);
+	//m_pMaterial->SetDiffuseColor(m_vecInfo[(int)eStat]->vClr);
 }
 
 void CUIButton::SetColor(BUTTON_STATE eStat, float r, float g, float b, float a)
 {
 	SetColor(eStat, Vector4(r, g, b, a));
 
-	m_pMaterial->SetDiffuseColor(Vector4(r, g, b, a));
+	//m_pMaterial->SetDiffuseColor(Vector4(r, g, b, a));
 }
 
 void CUIButton::SetColor(BUTTON_STATE eStat, BYTE r, BYTE g, BYTE b, BYTE a)
 {
 	SetColor(eStat, Vector4(r /255.f, g / 255.f, b / 255.f, a / 255.f));
 
-	m_pMaterial->SetDiffuseColor(Vector4(r / 255.f, g / 255.f, b / 255.f, a / 255.f));
+	//m_pMaterial->SetDiffuseColor(Vector4(r / 255.f, g / 255.f, b / 255.f, a / 255.f));
 }
 
 void CUIButton::SetSound(BUTTON_STATE eStat, const std::string& strKey)
@@ -144,7 +144,7 @@ bool CUIButton::Init()
 
 	CMaterial* pMat = GET_SINGLE(CResourceManager)->FindMaterial("UI2D");
 
-	m_pMaterial = pMat->Clone();
+	//m_pMaterial = pMat->Clone();
 
 	SAFE_RELEASE(pMat);
 
@@ -191,7 +191,7 @@ void CUIButton::Update(float fTime)
 
 			m_eState = BUTTON_STATE::PUSH;
 
-			m_pMaterial->SetDiffuseColor(m_vecInfo[(int)m_eState]->vClr);
+			//m_pMaterial->SetDiffuseColor(m_vecInfo[(int)m_eState]->vClr);
 		}			
 	}
 
@@ -203,7 +203,7 @@ void CUIButton::Update(float fTime)
 
 			m_eState = BUTTON_STATE::OFF;
 
-			m_pMaterial->SetDiffuseColor(m_vecInfo[(int)m_eState]->vClr);
+			//m_pMaterial->SetDiffuseColor(m_vecInfo[(int)m_eState]->vClr);
 		}
 	}
 
@@ -229,7 +229,7 @@ void CUIButton::Render(float fTime)
 {
 	CUIControl::Render(fTime);
 
-	m_pMaterial->SetMaterial();
+	//m_pMaterial->SetMaterial();
 
 	if(m_vecInfo[(int)m_eState]->pTex)
 	m_vecInfo[(int)m_eState]->pTex->SetTexture(0, (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
@@ -267,7 +267,7 @@ void CUIButton::ColEnter(CCollider* pSrc, CCollider* pDst, float fTime)
 
 			m_eState = BUTTON_STATE::ON;
 
-			m_pMaterial->SetDiffuseColor(m_vecInfo[(int)m_eState]->vClr);
+			//m_pMaterial->SetDiffuseColor(m_vecInfo[(int)m_eState]->vClr);
 		}
 			
 	}
@@ -283,7 +283,7 @@ void CUIButton::ColStay(CCollider* pSrc, CCollider* pDst, float fTime)
 
 			m_eState = BUTTON_STATE::ON;
 
-			m_pMaterial->SetDiffuseColor(m_vecInfo[(int)m_eState]->vClr);
+			//m_pMaterial->SetDiffuseColor(m_vecInfo[(int)m_eState]->vClr);
 		}
 	}
 }
@@ -298,7 +298,7 @@ void CUIButton::ColEnd(CCollider* pSrc, CCollider* pDst, float fTime)
 
 			m_eState = BUTTON_STATE::OFF;
 
-			m_pMaterial->SetDiffuseColor(m_vecInfo[(int)m_eState]->vClr);
+			//m_pMaterial->SetDiffuseColor(m_vecInfo[(int)m_eState]->vClr);
 		}
 	}
 }

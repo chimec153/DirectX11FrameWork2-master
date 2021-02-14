@@ -85,9 +85,13 @@ bool CResourceManager::Init()
 	if (!m_pDefaultMesh->CreateMesh())
 		return false;
 
+	m_pDefaultMesh->AddRef();
+
+	m_mapMesh.insert(std::make_pair("DefaultMesh", m_pDefaultMesh));
+
 	CMaterial* pMaterial = CreateMaterial("Color");
 
-	pMaterial->SetShader("Standard2D");
+	//pMaterial->SetShader("Standard2D");
 
 	SAFE_RELEASE(pMaterial);
 
@@ -100,13 +104,13 @@ bool CResourceManager::Init()
 
 	CMaterial* pMtrl = CreateMaterial("UI2D");
 
-	pMtrl->SetShader("UI2D");
+	//pMtrl->SetShader("UI2D");
 
 	SAFE_RELEASE(pMtrl);
 	
 	CMaterial* pParticleMtrl = CreateMaterial("Particle");
 
-	pParticleMtrl->SetShader("ParticleShader");
+	//pParticleMtrl->SetShader("ParticleShader");
 
 	SAFE_RELEASE(pParticleMtrl);
 
@@ -137,7 +141,7 @@ bool CResourceManager::Init()
 
 	CMaterial* pColMat = CreateMaterial("Collider");
 
-	pColMat->SetShader("Collider");
+	//pColMat->SetShader("Collider");
 
 	SAFE_RELEASE(pColMat);
 
@@ -173,7 +177,7 @@ bool CResourceManager::Init()
 
 	CMaterial* pLineMtrl = CreateMaterial("Line");
 
-	pLineMtrl->SetShader("LineShader");
+	//pLineMtrl->SetShader("LineShader");
 
 	SAFE_RELEASE(pLineMtrl);
 
@@ -205,7 +209,7 @@ bool CResourceManager::Init()
 
 	CMaterial* pC2CMtrl = CreateMaterial("C2C");
 
-	pC2CMtrl->SetShader("C2CShader");
+	//pC2CMtrl->SetShader("C2CShader");
 
 	SAFE_RELEASE(pC2CMtrl);
 
@@ -238,7 +242,7 @@ bool CResourceManager::Init()
 
 	CMaterial* pAngleMtrl = CreateMaterial("Angle");
 
-	pAngleMtrl->SetShader("AngleShader");
+	//pAngleMtrl->SetShader("AngleShader");
 
 	SAFE_RELEASE(pAngleMtrl);
 

@@ -117,10 +117,20 @@ void CRenderer::SetMaterial(CMaterial* pMaterial)
 {
 	SAFE_RELEASE(m_pMaterial);
 
-	m_pMaterial = pMaterial;
+	CMaterial* pMtrl = pMaterial;
 
-	if (m_pMaterial)
-		m_pMaterial->AddRef();
+	m_pMaterial = pMtrl->Clone();
+}
+
+void CRenderer::SetMaterial(const std::string& strTag)
+{
+	SAFE_RELEASE(m_pMaterial);
+
+	CMaterial* pMtrl = GET_SINGLE(CResourceManager)->FindMaterial(strTag);
+
+	m_pMaterial = pMtrl->Clone();
+
+	SAFE_RELEASE(pMtrl);
 }
 
 void CRenderer::SetShader(const std::string& strTag)
@@ -138,6 +148,14 @@ void CRenderer::SetShader(CShader* pShader)
 
 	if (m_pShader)
 		m_pShader->AddRef();
+}
+
+CShader* CRenderer::GetShader() const
+{
+	if (m_pShader)
+		m_pShader->AddRef();
+
+	return m_pShader;
 }
 
 void CRenderer::SetState()
@@ -184,6 +202,26 @@ void CRenderer::DeleteRenderState(const std::string& strKey)
 			return;
 		}
 	}
+}
+
+void CRenderer::SetTexture(REGISTER_TYPE eType, const std::string& strTag, int iRegister, int iCount, unsigned int iType)
+{
+	m_pMaterial->SetTexture(eType, strTag, iRegister, iCount, iType);
+}
+
+void CRenderer::SetTexture(REGISTER_TYPE eType, CTexture* pTex, int iRegister, int iCount, unsigned int iType)
+{
+	m_pMaterial->SetTexture(eType, pTex, iRegister, iCount, iType);
+}
+
+void CRenderer::SetTexture(REGISTER_TYPE eType, const std::string& strTag, const TCHAR* pFileName, const std::string& strPathName, int iRegister, int iCount, unsigned int iType)
+{
+	m_pMaterial->SetTexture(eType, strTag, pFileName, strPathName, iRegister, iCount, iType);
+}
+
+void CRenderer::SetTextureFromFullPath(REGISTER_TYPE eType, const std::string& strTag, const TCHAR* pFullPath, int iRegister, int iCount, unsigned int iType)
+{
+	m_pMaterial->SetTextureFromFullPath(eType, strTag, pFullPath, iRegister, iCount, iType);
 }
 
 CRenderState* CRenderer::FindState(const std::string& strKey)
@@ -238,12 +276,13 @@ void CRenderer::PreRender(float fTime)
 
 void CRenderer::Render(float fTime)
 {
-	CComponent::Render(fTime);
+	if(m_pShader)
+		m_pShader->SetShader();
 
-	m_pShader->SetShader();
+	if(m_pMaterial)
+		m_pMaterial->SetMaterial();
 
-	m_pMaterial->SetMaterial();
-
+	if(m_pMesh)
 	m_pMesh->Render(fTime);
 }
 
@@ -265,9 +304,177 @@ CRenderer* CRenderer::Clone()
 void CRenderer::Save(FILE* pFile)
 {
 	CComponent::Save(pFile);
+
+	int iSize = (int)m_vecRenderState.size();
+	fwrite(&iSize, 4, 1, pFile);
+	for (int i = 0; i < iSize; ++i)
+	{
+		std::string strTag = m_vecRenderState[i]->GetName();
+
+		int iLength = (int)strTag.length();
+		fwrite(&iLength, 4, 1, pFile);
+		fwrite(strTag.c_str(), 1, iLength, pFile);
+	}
+
+	bool bMesh = false;
+
+	if (m_pMesh)
+	{
+		bMesh = true;
+	}
+
+	fwrite(&bMesh, 1, 1, pFile);
+
+	if (m_pMesh)
+	{
+		std::string strTag = m_pMesh->GetName();
+
+		int iLength = (int)strTag.length();
+		fwrite(&iLength, 4, 1, pFile);
+		fwrite(strTag.c_str(), 1, iLength, pFile);
+	}
+
+	bool bMtrl = false;
+
+	if (m_pMaterial)
+	{
+		bMtrl = true;
+	}
+
+	fwrite(&bMtrl, 1, 1, pFile);
+
+	if (m_pMaterial)
+	{
+		std::string strTag = m_pMaterial->GetName();
+		int iLength = (int)strTag.length();
+		fwrite(&iLength, 4, 1, pFile);
+		fwrite(strTag.c_str(), 1, iLength, pFile);
+		m_pMaterial->Save(pFile);
+	}
+
+	bool bShader = false;
+
+	if (m_pShader)
+	{
+		bShader = true;
+	}
+
+	fwrite(&bShader, 1, 1, pFile);
+
+	if (m_pShader)
+	{
+		std::string strTag = m_pShader->GetName();
+
+		int iLength = (int)strTag.length();
+		fwrite(&iLength, 4, 1, pFile);
+		fwrite(strTag.c_str(), 1, iLength, pFile);
+	}
 }
 
 void CRenderer::Load(FILE* pFile)
 {
 	CComponent::Load(pFile);
+
+	int iSize = 0;
+	fread(&iSize, 4, 1, pFile);
+	for (int i = 0; i < iSize; ++i)
+	{
+		char strTag[256] = {};
+		int iLength = 0;
+		fread(&iLength, 4, 1, pFile);
+		if (iLength > 0)
+		{
+			fread(strTag, 1, iLength, pFile);
+		}
+
+		AddRenderState(strTag);
+	}
+
+	bool bMesh = false;
+
+	fread(&bMesh, 1, 1, pFile);
+
+	if (bMesh)
+	{
+		char strTag[256] = {};
+		int iLength = 0;
+		fread(&iLength, 4, 1, pFile);
+		if (iLength > 0)
+		{
+			fread(strTag, 1, iLength, pFile);
+		}
+
+		SetMesh(strTag);
+	}
+
+	bool bMtrl = false;
+
+	fread(&bMtrl, 1, 1, pFile);
+
+	if (bMtrl)
+	{
+		char strTag[256] = {};
+		int iLength = 0;
+		fread(&iLength, 4, 1, pFile);
+		if (iLength > 0)
+		{
+			fread(strTag, 1, iLength, pFile);
+		}
+		SetMaterial(strTag);
+		
+		CMaterial* pMtrl = GetMaterial();
+		pMtrl->Load(pFile);
+	}
+
+	bool bShader = false;
+
+	fread(&bShader, 1, 1, pFile);
+
+	if (bShader)
+	{
+		char strTag[256] = {};
+		int iLength = 0;
+		fread(&iLength, 4, 1, pFile);
+		if (iLength > 0)
+		{
+			fread(strTag, 1, iLength, pFile);
+		}
+
+		SetShader(strTag);
+	}
+}
+
+void CRenderer::SpawnWindow()
+{
+	if (ImGui::Begin("Renderer"))
+	{
+		CMaterial* pMtrl = GetMaterial();
+
+		if (pMtrl)
+		{
+			Vector4 vDiff = pMtrl->GetDif();
+			Vector4 vAmb = pMtrl->GetAmb();
+
+			ImGui::SliderFloat4("DiffuseColor", &vDiff.x, 0.f, 1.f);
+			ImGui::SliderFloat4("AmbientColor", &vAmb.x, 0.f, 1.f);
+
+			pMtrl->SetDiffuseColor(vDiff);
+			pMtrl->SetAmbientColor(vAmb);
+		}
+
+		SAFE_RELEASE(pMtrl);
+		static int iItem = 0;
+		char strState[256] = {};
+
+		size_t iSize = m_vecRenderState.size();
+
+		for (size_t i = 0; i < iSize; ++i)
+		{
+			strcat_s(strState, m_vecRenderState[i]->GetName().c_str());
+			strcat_s(strState, "0");
+		}
+
+		ImGui::Combo("RenderState", &iItem, strState);
+	}
+	ImGui::End();
 }

@@ -41,6 +41,9 @@ protected:
 	bool			m_bFade;
 	class CMesh2DComponent* m_pBackFade;
 	bool		m_bHub;
+	static TILE_TEX_TYPE m_eTexType;
+	static const char* m_pTex[(int)TILE_TEX_TYPE::END];
+	enum class BOSS_TYPE		m_eType;
 	
 public:
 	const Vector3& GetDoorDir()	const
@@ -54,6 +57,14 @@ public:
 	}
 
 	void Lock(bool bLock);
+	void SetType(enum class BOSS_TYPE eType)
+	{
+		m_eType = eType;
+	}
+	enum class BOSS_TYPE GetType()	const
+	{
+		return m_eType;
+	}
 
 public:
 	bool Init();

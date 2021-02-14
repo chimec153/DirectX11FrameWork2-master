@@ -117,9 +117,11 @@ bool CStartGameMode::Init()
 
 	CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
 
-	pCam->SetWorldPos(800.f, 384.f, 0.f);
+	pCam->SetWorldPos(800.f, 600.f, 0.f);
 
 	pCam->SetRect(0.25f, 0.75f, 0.25f, 0.75f);
+
+	LoadXml("IMG\\jam.png.xml");
 
 	LoadXml("MAPS\\JAM\\jamtitle.tmx");
 
@@ -195,6 +197,10 @@ void CStartGameMode::Update(float fTime)
 {
 	CTileMode::Update(fTime);
 
+	CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
+
+	pCam->SetWorldPos(800.f, 600.f, 0.f);
+	SAFE_RELEASE(pCam);
 
 	if (m_iStage < (int)Stage::TITLE)
 	{
@@ -1158,12 +1164,12 @@ void CStartGameMode::DownX(float fTime)
 
 						GET_SINGLE(CBossManager)->SetSlot(m_iSelect);
 
-						MainGameMode(fTime);
-
-						if (tInfo.bStart)
+						/*if (tInfo.bStart)
 						{
 							GET_SINGLE(CBossManager)->Load();
-						}
+						}*/
+
+						MainGameMode(fTime);
 					}
 
 					else

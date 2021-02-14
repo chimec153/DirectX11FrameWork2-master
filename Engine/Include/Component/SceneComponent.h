@@ -17,12 +17,7 @@ protected:
 	SCENE_COMPONENT_TYPE			m_eSceneComponentType;
 	SCENECOMPONENT_CLASS_TYPE		m_eSceneComponentClassType;
 	class CRenderer*				m_pRenderer;
-
-protected:
-	class CMaterial*				m_pMaterial;
-	class CMesh*					m_pMesh;
 	bool							m_bInst;
-	std::vector<class CRenderState*>	m_vecRenderState;
 
 public:
 	class CMesh* GetMesh()	const;
@@ -30,11 +25,15 @@ public:
 	void SetMesh(class CMesh* pMesh);
 	class CMaterial* GetMaterial()	const;
 	void SetMaterial(class CMaterial* pMaterial);
+	void SetMaterial(const std::string& strMtrl);
 	bool IsInstanced()	const;
 	void SetInstance(bool bInst = true);
 	void SetLayer(class CLayer* pLayer);
 	class CRenderer* GetRenderer()	const;
 	class CTransform* GetTransform()	const;
+	void SetShader(const std::string& strShader);
+	void SetShader(class CShader* pShader);
+	class CShader* GetShader()	const;
 
 public:
 	void SetTexture(REGISTER_TYPE eType, const std::string& strTag, int iRegister = 0, int iCount = 1,

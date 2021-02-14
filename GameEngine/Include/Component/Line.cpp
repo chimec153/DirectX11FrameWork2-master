@@ -38,9 +38,11 @@ bool CLine::Init()
 	if (!CSceneComponent::Init())
 		return false;
 
-	m_pMesh = (CMesh*)GET_SINGLE(CResourceManager)->FindMesh("Line");
+	SetMesh("Line");
 
-	m_pMaterial = GET_SINGLE(CResourceManager)->FindMaterial("Line");
+	SetMaterial("Line");
+
+	SetShader("LineShader");
 
 	return true;
 }
@@ -86,11 +88,9 @@ void CLine::PreRender(float fTime)
 
 void CLine::Render(float fTime)
 {
-	CSceneComponent::Render(fTime);
-
 	GET_SINGLE(CShaderManager)->UpdateCBuffer("Angle", &m_tCBuffer);
 
-	m_pMesh->Render(fTime);
+	CSceneComponent::Render(fTime);
 }
 
 void CLine::PostRender(float fTime)

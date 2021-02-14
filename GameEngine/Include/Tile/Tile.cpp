@@ -1,5 +1,6 @@
 #include "Tile.h"
 #include "../Resource/Material.h"
+#include "TileMap.h"
 
 CTile::CTile()	:
 	m_eTileOption(TILE_OPTION::NONE),
@@ -14,7 +15,8 @@ CTile::CTile()	:
 	m_bAnim(false),
 	m_fFrameTime(0.f),
 	m_fMaxTime(0.f),
-	m_iFrame(0)
+	m_iFrame(0),
+	m_pMap(nullptr)
 {
 }
 
@@ -32,6 +34,7 @@ CTile::CTile(const CTile& tile)	:
 	m_vSize = tile.m_vSize;
 	m_matWV = tile.m_matWV;
 	m_bAnim = tile.m_bAnim;
+	m_pMap = tile.m_pMap;
 
 	size_t iSz = tile.m_vecTexIdx.size();
 
@@ -66,7 +69,7 @@ const Matrix& CTile::GetWV() const
 
 const Vector2 CTile::GetTextureSize() const
 {
-	return m_pMaterial->GetTextureSize();
+	return m_pMap->GetTextureSize();
 }
 
 void CTile::SetAnim(const std::vector<Vector2>& vecFrame,float fFrameTime)
@@ -81,6 +84,11 @@ void CTile::SetAnim(const std::vector<Vector2>& vecFrame,float fFrameTime)
 	m_fMaxTime = fFrameTime;
 
 	m_bAnim = true;
+}
+
+CTileMap* CTile::GetMap() const
+{
+	return m_pMap;
 }
 
 bool CTile::Init()

@@ -49,6 +49,11 @@ CScene* CComponent::GetScene() const
 	return m_pScene;
 }
 
+void CComponent::DeleteLayer()
+{
+	m_pLayer = nullptr;
+}
+
 bool CComponent::IsStart() const
 {
 	return m_bStart;
@@ -111,4 +116,13 @@ void CComponent::Load(FILE* pFile)
 	fread(&m_eType, 4, 1, pFile);
 
 	m_bStart = false;
+}
+
+void CComponent::SpawnWindow()
+{
+	if (ImGui::Begin("Component"))
+	{
+		ImGui::Checkbox("Enable", &m_bEnable);
+	}
+	ImGui::End();
 }

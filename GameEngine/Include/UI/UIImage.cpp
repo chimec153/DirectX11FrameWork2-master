@@ -59,7 +59,7 @@ void CUIImage::Render(float fTime)
 {
 	CUIControl::Render(fTime);
 
-	m_pMaterial->SetMaterial();
+	//m_pMaterial->SetMaterial();
 
 	m_pTexture->SetTexture(0, (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
 

@@ -19,6 +19,7 @@ bool CColossusMode::m_bClear = false;
 
 CColossusMode::CColossusMode()
 {
+	SetType(BOSS_TYPE::COLOSSUS);
 }
 
 CColossusMode::~CColossusMode()
@@ -39,22 +40,31 @@ void CColossusMode::Start()
 {
 	CGameMode::Start();
 
-	if (m_bClear)
+	int iSlot = GET_SINGLE(CBossManager)->GetSlot();
+	SLOTINFO tInfo = GET_SINGLE(CBossManager)->GetInfo(iSlot);
+
+	if ((int)tInfo.eType & (int)BOSS_TYPE::COLOSSUS)
 	{
-		CObj* pObj = m_pScene->FindLayer("Default")->FindObj("boss_colossus");
+		GET_SINGLE(CBossManager)->Load();
+	}
 
-		if (pObj)
+
+	CObj* pObj = GET_SINGLE(CBossManager)->FindMonster("boss_colossus");
+
+	if (pObj)
+	{
+		CObj* pPrevObj = m_pScene->FindLayer("Default")->FindObj("boss_colossus");
+
+		if (pPrevObj)
 		{
-			pObj->Destroy();
+			pPrevObj->Destroy();
 
-			pObj->Release();
+			pPrevObj->Release();
 		}
-
-		pObj = GET_SINGLE(CBossManager)->FindMonster("boss_colossus");
 
 		m_pScene->FindLayer("Default")->AddObj(pObj);
 
-		SAFE_RELEASE(pObj);
+		pObj->Release();
 	}
 }
 

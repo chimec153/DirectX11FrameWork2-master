@@ -3,11 +3,14 @@
 #include "../Object/Eyecube.h"
 #include "Scene/Scene.h"
 #include "../BossManager.h"
+#include "Camera/CameraManager.h"
+#include "Component/Camera.h"
 
 bool CEyeCubeMode::m_bClear = false;
 
 CEyeCubeMode::CEyeCubeMode()
 {
+	SetType(BOSS_TYPE::EYECUBE);
 }
 
 CEyeCubeMode::~CEyeCubeMode()
@@ -19,25 +22,38 @@ bool CEyeCubeMode::Init()
 	if (!CTileMode::Init())
 		return false;
 
-	if (m_bClear)
+	m_pPlayer->SetWorldPos(472.f, 408.f, 0.f);
+
+	return true;
+}
+
+void CEyeCubeMode::Start()
+{
+	CTileMode::Start();
+
+	int iSlot = GET_SINGLE(CBossManager)->GetSlot();
+	SLOTINFO tInfo = GET_SINGLE(CBossManager)->GetInfo(iSlot);
+
+	if ((int)tInfo.eType & (int)BOSS_TYPE::EYECUBE)
 	{
-		CObj* pObj = m_pScene->FindLayer("Default")->FindObj("boss_eyecube");
+		GET_SINGLE(CBossManager)->Load();
+	}
 
-		if (pObj)
+	CObj* pObj = GET_SINGLE(CBossManager)->FindMonster("boss_eyecube");
+
+	if (pObj)
+	{
+		CObj* pPrevObj = m_pScene->FindLayer("Default")->FindObj("boss_eyecube");
+
+		if (pPrevObj)
 		{
-			pObj->Destroy();
+			pPrevObj->Destroy();
 
-			pObj->Release();
+			pPrevObj->Release();
 		}
-
-		pObj = GET_SINGLE(CBossManager)->FindMonster("boss_eyecube");
 
 		m_pScene->FindLayer("Default")->AddObj(pObj);
 
-		SAFE_RELEASE(pObj);
+		pObj->Release();
 	}
-
-	m_pPlayer->SetWorldPos(432.f, 384.f, 0.f);
-
-	return true;
 }

@@ -11,7 +11,7 @@
 DEFINITION_SINGLE(CBossManager);
 
 CBossManager::CBossManager()	:
-	m_bSave(false)
+	m_bSave(true)
 	, m_iSlot(0)
 {
 	m_vecSlot.resize(4);
@@ -157,7 +157,18 @@ void CBossManager::Load()
 			{
 			case BOSS_TYPE::COLOSSUS:
 			{
-				CColossus* pCol = pScene->CreateObject<CColossus>("boss_colossus", pScene->FindLayer("Default"));
+				CObj* pObj = FindMonster("boss_colossus");
+
+				if (pObj)
+				{
+					pObj->Release();
+
+					m_mapBoss.erase("boss_colossus");
+
+					pObj->Release();
+				}
+
+				CColossus* pCol = new CColossus;
 
 				pCol->Load(pFile);
 
@@ -166,7 +177,18 @@ void CBossManager::Load()
 				break;
 			case BOSS_TYPE::EYECUBE:
 			{
-				CEyecube* pEye = pScene->CreateObject<CEyecube>("boss_eyecube", pScene->FindLayer("Default"));
+				CObj* pObj = FindMonster("boss_eyecube");
+
+				if (pObj)
+				{
+					pObj->Release();
+
+					m_mapBoss.erase("boss_eyecube");
+
+					pObj->Release();
+				}
+
+				CEyecube* pEye = new CEyecube;
 
 				pEye->Load(pFile);
 
@@ -175,7 +197,18 @@ void CBossManager::Load()
 				break;
 			case BOSS_TYPE::BRAINFREEZE:
 			{
-				CBrainFreeze* pBrain = pScene->CreateObject<CBrainFreeze>("boss_brainfreeze", pScene->FindLayer("Default"));
+				CObj* pObj = FindMonster("boss_brainfreeze");
+
+				if (pObj)
+				{
+					pObj->Release();
+
+					m_mapBoss.erase("boss_brainfreeze");
+
+					pObj->Release();
+				}
+
+				CBrainFreeze* pBrain = new CBrainFreeze;
 
 				pBrain->Load(pFile);
 
@@ -186,7 +219,7 @@ void CBossManager::Load()
 
 		}
 
-		CPlayer* pPlayer = (CPlayer*)GET_SINGLE(CSceneManager)->GetNextScene()->GetGameMode()->GetPlayer();
+		CPlayer* pPlayer = (CPlayer*)GET_SINGLE(CSceneManager)->GetScene()->GetGameMode()->GetPlayer();
 
 		pPlayer->SetPlayTime(m_vecSlot[m_iSlot].fPlayTime);
 		pPlayer->SetDeath(m_vecSlot[m_iSlot].iDeath);

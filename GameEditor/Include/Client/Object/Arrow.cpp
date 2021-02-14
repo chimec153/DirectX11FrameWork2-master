@@ -54,12 +54,17 @@ bool CArrow::Init()
 	m_pMesh->CreateSprite("WalkRU", "ArrowWalkRU", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("WalkR",	"ArrowWalkR", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("WalkRD", "ArrowWalkRD", LOOP_OPTION::LOOP);
-	m_pMesh->CreateSprite("WalkD",	"ArrowWalkD", LOOP_OPTION::LOOP);
-	m_pMesh->CreateSprite("AttackU",	"ArrowAttackU", LOOP_OPTION::ONCE_RETURN);
-	m_pMesh->CreateSprite("AttackRU",	"ArrowAttackRU", LOOP_OPTION::ONCE_RETURN);
-	m_pMesh->CreateSprite("AttackR",	"ArrowAttackR", LOOP_OPTION::ONCE_RETURN);
-	m_pMesh->CreateSprite("AttackRD",	"ArrowAttackRD", LOOP_OPTION::ONCE_RETURN);
-	m_pMesh->CreateSprite("AttackD",	"ArrowAttackD", LOOP_OPTION::ONCE_RETURN);
+	m_pMesh->CreateSprite("WalkD",	"ArrowWalkD", LOOP_OPTION::LOOP);	
+	m_pMesh->CreateSprite("RunU",	"ArrowRunU", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("RunRU", "ArrowRunRU", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("RunR",	"ArrowRunR", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("RunRD", "ArrowRunRD", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("RunD",	"ArrowRunD", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("AttackU",	"ArrowAttackU", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("AttackRU",	"ArrowAttackRU", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("AttackR",	"ArrowAttackR", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("AttackRD",	"ArrowAttackRD", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("AttackD",	"ArrowAttackD", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("CallU",	"ArrowCallU", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("CallRU", "ArrowCallRU", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("CallR",	"ArrowCallR", LOOP_OPTION::LOOP);
@@ -80,6 +85,10 @@ bool CArrow::Init()
 	m_pMesh->CreateSprite("DieR",	"ArrowDieR", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("DieRD",	"ArrowDieRD", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("DieD",	"ArrowDieD", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("Turn", "ArrowTurn", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("TurnIdle", "ArrowTurnIdle", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("Randing", "ArrowRanding", LOOP_OPTION::ONCE_RETURN);
+	m_pMesh->CreateSprite("RandingIdle", "ArrowRandingIdle", LOOP_OPTION::LOOP);
 	m_pMesh->SetPivot(0.5f, 0.5f, 0.f);
 
 	SetRootComponent(m_pMesh);

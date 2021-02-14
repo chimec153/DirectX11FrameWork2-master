@@ -54,7 +54,7 @@ bool CColliderRect::Init()
 		return false;
 
 #ifdef _DEBUG
-	m_pMesh = GET_SINGLE(CResourceManager)->FindMesh("Collider2D");
+	m_pDebugMesh = (CMesh2D*)GET_SINGLE(CResourceManager)->FindMesh("Collider2D");
 #endif
 
 	SetInheritRotX(false);
@@ -104,6 +104,8 @@ void CColliderRect::PreRender(float fTime)
 void CColliderRect::Render(float fTime)
 {
 	CCollider::Render(fTime);
+
+	int i = 0;
 }
 
 void CColliderRect::PostRender(float fTime)
@@ -119,11 +121,21 @@ CColliderRect* CColliderRect::Clone()
 void CColliderRect::Save(FILE* pFile)
 {
 	CCollider::Save(pFile);
+
+	fwrite(&m_tInfo, sizeof(m_tInfo), 1, pFile);
+	fwrite(&m_tExtent, sizeof(Vector2), 1, pFile);
 }
 
 void CColliderRect::Load(FILE* pFile)
 {
 	CCollider::Load(pFile);
+
+	fread(&m_tInfo, sizeof(m_tInfo), 1, pFile);
+	fread(&m_tExtent, sizeof(Vector2), 1, pFile);
+
+#ifdef _DEBUG
+	m_pDebugMesh = (CMesh2D*)GET_SINGLE(CResourceManager)->FindMesh("Collider2D");
+#endif
 }
 
 bool CColliderRect::Collision(CCollider* pDest)

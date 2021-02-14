@@ -5,7 +5,7 @@
 #include "../Scene/Scene.h"
 
 CSound::CSound()	:
-	m_strName(),
+	m_strSound(),
 	m_pSound(nullptr),
 	m_fMax(1.f),
 	m_fMin(0.f),
@@ -20,17 +20,18 @@ CSound::CSound()	:
 CSound::CSound(const CSound& snd)	:
 	CSceneComponent(snd)
 {
-	m_strName = snd.m_strName;
+	m_strSound = snd.m_strSound;
 	m_pSound = snd.m_pSound;
 	m_fMax = snd.m_fMax;
 	m_fMin = snd.m_fMin;
 	m_fMaxVol = snd.m_fMaxVol;
 	m_fMinVol = snd.m_fMinVol;
+	m_bFade = snd.m_bFade;
+	m_bIn = snd.m_bIn;
 }
 
 CSound::~CSound()
 {
-	//Stop();
 }
 
 void CSound::SetVol(float fVol)
@@ -85,12 +86,12 @@ void CSound::Play(float fTime)
 #ifdef _DEBUG
 		if (hr == FMOD_OK)
 		{
-			std::cout << "\tPlay: " << m_strName << "\tOK"<<std::endl;
+			std::cout << "\tPlay: " << m_strSound << "\tOK"<<std::endl;
 		}
 
 		else
 		{
-			std::cout << "\tPlay: " << m_strName << "\tERROR" << std::endl;
+			std::cout << "\tPlay: " << m_strSound << "\tERROR" << std::endl;
 		}
 #endif
 	}
@@ -107,7 +108,7 @@ void CSound::Stop()
 			if (tResult == FMOD_RESULT::FMOD_OK)
 			{
 				OutputDebugStringA("FMOD_STOP_OK");
-				std::cout << "Stop: " << m_strName << std::endl;
+				std::cout << "Stop: " << m_strSound << std::endl;
 			}
 
 			else
@@ -121,7 +122,7 @@ void CSound::Stop()
 
 void CSound::SetSound(const std::string& strKey)
 {
-	m_strName = strKey;
+	m_strSound = strKey;
 
 	m_pSound = GET_SINGLE(CSoundManager)->FindSound(strKey);
 }
@@ -207,8 +208,7 @@ void CSound::Update(float fTime)
 			fVol = fVol* fVol;
 
 			SetVol(fVol);
-		}			
-		//SetVol(10000.f / fDst / fDst);
+		}
 	}
 
 	else if (m_bFade && m_pSound)
@@ -260,7 +260,6 @@ void CSound::PreRender(float fTime)
 
 void CSound::Render(float fTime)
 {
-	CSceneComponent::Render(fTime);
 }
 
 void CSound::PostRender(float fTime)
@@ -276,9 +275,35 @@ CSound* CSound::Clone()
 void CSound::Save(FILE* pFile)
 {
 	CSceneComponent::Save(pFile);
+
+	int iLength = (int)m_strSound.length();
+
+	fwrite(&iLength, 4, 1, pFile);
+	fwrite(m_strSound.c_str(), 1, iLength, pFile);
+	fwrite(&m_fMax, 4, 1, pFile);
+	fwrite(&m_fMin, 4, 1, pFile);
+	fwrite(&m_fMaxVol, 4, 1, pFile);
+	fwrite(&m_fMinVol, 4, 1, pFile);
+	fwrite(&m_bFade, 1, 1, pFile);
+	fwrite(&m_bIn, 1, 1, pFile);
+
 }
 
 void CSound::Load(FILE* pFile)
 {
 	CSceneComponent::Load(pFile);
+
+	int iLength = 0;
+	char strTag[256] = {};
+
+	fread(&iLength, 4, 1, pFile);
+	fread(strTag, 1, iLength, pFile);
+	fread(&m_fMax, 4, 1, pFile);
+	fread(&m_fMin, 4, 1, pFile);
+	fread(&m_fMaxVol, 4, 1, pFile);
+	fread(&m_fMinVol, 4, 1, pFile);
+	fread(&m_bFade, 1, 1, pFile);
+	fread(&m_bIn, 1, 1, pFile);
+
+	SetSound(strTag);
 }

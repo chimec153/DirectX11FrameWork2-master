@@ -31,6 +31,9 @@
 #include "../Object/Eyecube.h"
 #include "Engine.h"
 
+TILE_TEX_TYPE CTileMode::m_eTexType = TILE_TEX_TYPE::TEX;
+const char* CTileMode::m_pTex[(int)TILE_TEX_TYPE::END] = {};
+
 CTileMode::CTileMode() :
 	m_fShakeTime(0.f),
 	m_fShakeLimit(0.25f),
@@ -48,7 +51,8 @@ CTileMode::CTileMode() :
 	m_fFadeEnd(0.f),
 	m_fFadeScale(0.f),
 	m_bFade(false),
-	m_bHub(false)
+	m_bHub(false),
+	m_eType(BOSS_TYPE::NONE)
 {
 	m_vDoorDir = Vector3(0.f, -1.f, 0.f);
 }
@@ -171,7 +175,8 @@ bool CTileMode::Init()
 
 	m_pFade->SetWorldScale((float)tRS.iWidth, (float)tRS.iHeight, 0.f);
 	m_pFade->SetPivot(0.5f, 0.5f, 0.f);
-	m_pFade->SetTexture(REGISTER_TYPE::RT_DIF, "util");
+	//m_pFade->SetTexture(REGISTER_TYPE::RT_DIF, "Pro");	
+	//m_pFade->SetTexture(REGISTER_TYPE::RT_DIF, "util", TEXT("IMG\\UTIL\\util.png"), DATA_PATH, 0, 1);
 	m_pFade->SetWorldPos(0.f, 0.f, -520.f);
 	m_pFade->AddRenderState("DepthNoWrite");
 	m_pFade->AddRenderState("NoCullBack");
@@ -179,6 +184,7 @@ bool CTileMode::Init()
 	CMaterial* pFadeMtrl = m_pFade->GetMaterial();
 
 	pFadeMtrl->SetDiffuseColor(0.f, 0.f, 0.f, 0.f);
+	pFadeMtrl->SetGray(false);
 
 	SAFE_RELEASE(pFadeMtrl);
 
@@ -207,9 +213,10 @@ bool CTileMode::LoadXml(const char* pFileName, const std::string& strPathKey)
 
 	TiXmlElement* pElem = tDoc.FirstChildElement();
 
-	searchXMLData(pElem);
+	m_eTexType = TILE_TEX_TYPE::TEX;
+	memset(m_pTex, 0, sizeof(const char*) * (int)TILE_TEX_TYPE::END);
 
-	//tDoc.Clear();
+	searchXMLData(pElem);
 
 	return true;
 }
@@ -223,10 +230,8 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 	static Vector2 m_vTileSize = {};
 	static int m_pWidth[(int)TILE_TEX_TYPE::END] = {};
 	static int m_pHeight[(int)TILE_TEX_TYPE::END] = {};
-	static const char* m_pTex[(int)TILE_TEX_TYPE::END] = {};
 	static int m_iMapWidth = 0;
 	static int m_iMapHeight = 0;
-	static TILE_TEX_TYPE m_eTexType = TILE_TEX_TYPE::TEX;
 	static const char* m_pTag = nullptr;
 	static int m_iZ = 0;
 	static bool m_bAni = false;
@@ -240,7 +245,7 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 	static float m_fMaxVol = 0.f;
 	static float m_fMinVol = 0.f;
 	static std::vector<class CTileMap*>	m_vecMap;
-	static int		m_iLayer = 0;;
+	static int		m_iLayer = 0;
 
 	hRoot = TiXmlHandle(pSubElem);
 	pSubElem = hRoot.FirstChildElement().Element();
@@ -337,13 +342,15 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 
 				else if (strcmp(strAttrib, "height") == 0)
 				{
+#ifdef _DEBUG
 					char strDebug[32] = {};
 
 					sprintf_s(strDebug, "Type: %d\n", m_eTexType);
 
 					OutputDebugStringA(strDebug);
+#endif
 
-					if ((int)m_eTexType < 2)
+					if ((int)m_eTexType < 2 && (int)m_eTexType >= 0)
 					{
 						m_pHeight[(int)m_eTexType] = atoi(pText);
 					}
@@ -503,7 +510,19 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 
 					pMapObj->SetRootComponent(pMap);
 
-					pMap->AddRenderState("DepthNoWrite");
+					if (strcmp(m_pTag, "1_FG1") == 0)
+					{
+						pMap->AddRenderState("ForeGround");
+					}
+
+					else if (strcmp(m_pTag, "1_FG2") == 0)
+					{
+						pMap->AddRenderState("ForeGround");
+					}
+					else
+					{
+						pMap->AddRenderState("DepthNoWrite");
+					}
 
 					m_vecMap.push_back(pMap);
 
@@ -592,14 +611,12 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 						else if (strcmp(m_pTag, "boss_eyecube") == 0)
 						{
 							pObj = m_pScene->CreateObject<CEyecube>(m_pTag, pLayer, m_pScene->GetSceneType());
-							pObj->SetWorldPos(0.f, 0.f, -100.f);
-							//pObj->SetWorldPos(480.f, 589.f, -100.f);
+							pObj->SetWorldPos(0.f, 64.f, -100.f);
 						}
 
 						else if (strcmp(m_pTag, "boss_brainfreeze") == 0)
 						{
 							pObj = m_pScene->CreateObject<CBrainFreeze>(m_pTag, pLayer, m_pScene->GetSceneType());
-							//pObj->AddWorldPos(8.f, 8.f, 0.f);
 						}
 
 						else if (strcmp(m_pTag, "4292") == 0)
@@ -961,12 +978,14 @@ void CTileMode::searchXMLData(TiXmlElement* pElem)
 				pResult = strtok_s(nullptr, ",", &pContext);
 			}
 
-			size_t iSz = m_vecMap.size();
+			CTileMap::AddAnim(vecFrame, fSpeed);
 
-			for (size_t i = 0; i < iSz; ++i)
-			{
-				m_vecMap[i]->AddAnim(vecFrame, fSpeed);
-			}
+			//size_t iSz = m_vecMap.size();
+
+			//for (size_t i = 0; i < iSz; ++i)
+			//{
+			//	m_vecMap[i]->AddAnim(vecFrame, fSpeed);
+			//}
 		}
 
 		searchXMLData(pSubElem);

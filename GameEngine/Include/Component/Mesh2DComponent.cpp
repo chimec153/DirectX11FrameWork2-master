@@ -31,11 +31,9 @@ bool CMesh2DComponent::Init()
 
 	SAFE_RELEASE(pMesh);
 
-	CMaterial* pMtrl = GET_SINGLE(CResourceManager)->FindMaterial("Color");
+	SetMaterial("Color");
 
-	m_pMaterial = pMtrl->Clone();
-
-	SAFE_RELEASE(pMtrl);
+	SetShader("Standard2D");
 
 	return true;
 }
@@ -79,10 +77,10 @@ void CMesh2DComponent::Render(float fTime)
 {
 	CSceneComponent::Render(fTime);
 
-	if (m_pMesh)
-	{
-		m_pMesh->Render(fTime);
-	}
+	//if (m_pMesh)
+	//{
+	//	m_pMesh->Render(fTime);
+	//}
 }
 
 void CMesh2DComponent::PostRender(float fTime)

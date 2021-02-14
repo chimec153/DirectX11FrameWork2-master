@@ -360,3 +360,30 @@ void CParticleSystem::CloneCBuffer(PARTICLECBUFFER& tBuffer)
 {
 	tBuffer = m_tCBuffer;
 }
+
+void CParticleSystem::Save(FILE* pFile)
+{
+	CRef::Save(pFile);
+
+	fwrite(&m_bDynamic, 1, 1, pFile);
+	fwrite(&m_tDesc, sizeof(D3D11_BUFFER_DESC), 1, pFile);
+	fwrite(&m_iCount, 4, 1, pFile);
+	fwrite(&m_iSize, 4, 1, pFile);
+	fwrite(&m_iRegister, 4, 1, pFile);
+	fwrite(&m_iType, 4, 1, pFile);
+	fwrite(&m_tCBuffer, sizeof(PARTICLECBUFFER), 1, pFile);
+}
+
+void CParticleSystem::Load(FILE* pFile)
+{
+	CRef::Load(pFile);
+
+	fread(&m_bDynamic, 1, 1, pFile);
+	fread(&m_tDesc, sizeof(D3D11_BUFFER_DESC), 1, pFile);
+	fread(&m_iCount, 4, 1, pFile);
+	fread(&m_iSize, 4, 1, pFile);
+	fread(&m_iRegister, 4, 1, pFile);
+	fread(&m_iType, 4, 1, pFile);
+	fread(&m_tCBuffer, sizeof(PARTICLECBUFFER), 1, pFile);
+	Init(m_bDynamic, m_iCount, m_iSize, m_iRegister, m_iType);
+}

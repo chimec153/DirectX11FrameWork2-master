@@ -30,7 +30,6 @@ public:
 	void ClearState();
 	void Render();
 
-
 	DECLARE_SINGLE(CDevice)
 };
 

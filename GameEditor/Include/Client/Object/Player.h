@@ -11,6 +11,7 @@ enum class STATE
 	ATTACK,
 	CALL,
 	DIE,
+	RUN,
 	END
 };
 
@@ -112,6 +113,10 @@ private:
 	static bool	m_bMenu;
 	static int	m_iMenu;
 	static const float m_fWalkSpeed;
+	static bool		m_bSlow;
+	static float	m_fSlowTime;
+	class CTileMap* m_pDebugMap;
+	//bool		m_bPushC;
 	
 public:
 	void SetMeshComponent(class CSpriteComponent* pMesh);
@@ -157,6 +162,7 @@ public:
 	{
 		m_iDeath = iDeath;
 	}
+	void SetDir(DIR_8 eDir);
 
 public:
 	virtual bool Init();
@@ -190,7 +196,6 @@ public:
 	void ShiftDown(float fPushTIme, float fTime);
 	void ShiftUp(float fPushTIme, float fTime);
 	void RollEnd();
-	//void RollEnd(float fTime);
 
 public:
 	void ColStart(class CCollider* pSrc, class CCollider* pDst, float fTime);
@@ -227,7 +232,10 @@ public:
 	void MenuRight(float fPushTime, float fTime);
 	void MenuUpdate();
 
-	public:
-		void SpawnWindow();
+public:
+	void SpawnWindow();
+
+public:
+	void Mucus();
 };
 

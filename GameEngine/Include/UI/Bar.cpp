@@ -41,7 +41,11 @@ bool CBar::Init()
 	if (!CUIControl::Init())
 		return false;
 
-	m_pImage = GET_SINGLE(CResourceManager)->GetUIMesh();
+	CMesh* pImage = GET_SINGLE(CResourceManager)->GetUIMesh();
+
+	SetMesh(pImage);
+
+	SAFE_RELEASE(pImage);
 
 	/*CMaterial* pMtrl = m_pImage->GetMaterial();
 
@@ -52,8 +56,7 @@ bool CBar::Init()
 		pMtrl->Release();
 	}*/
 
-	if(m_pMaterial)
-		m_pMaterial->SetShader("Bar");
+	SetShader("Bar");
 
 	return true;
 }
@@ -94,8 +97,6 @@ void CBar::Render(float fTime)
 
 	if (m_pTexture)
 		m_pTexture->SetTexture(0, (int)SHADER_CBUFFER_TYPE::CBUFFER_PIXEL);
-
-	m_pMaterial->SetMaterial();
 
 	m_pImage->Render(fTime);
 }

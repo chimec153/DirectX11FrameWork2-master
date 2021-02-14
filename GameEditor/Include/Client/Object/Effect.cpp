@@ -21,6 +21,11 @@ CEffect::~CEffect()
 {
 }
 
+void CEffect::SetScaleCallBack(float)
+{
+	SetScaleSpeed(Vector3(-32.f, -32.f, 0.f));
+}
+
 bool CEffect::Init()
 {
 	if (!CObj::Init())

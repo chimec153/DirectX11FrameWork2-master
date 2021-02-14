@@ -21,6 +21,7 @@
 #include <dwrite.h>
 #include <queue>
 #include <stack>
+#include <mutex>
 
 #include "UI/imgui/imgui.h"
 #include "UI/imgui/imgui_impl_dx11.h"

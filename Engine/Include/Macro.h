@@ -154,4 +154,4 @@ void Safe_Delete_Array_List(T& p)
 #define FACTORY2D		GET_SINGLE(CDevice)->GetFactory2D()
 #define RENDERTARGET2D	GET_SINGLE(CDevice)->GetRenderTarget2D()
 
-#define HANDLE			GET_SINGLE(CEngine)->GetHandle()
+#define WINDOWHANDLE	GET_SINGLE(CEngine)->GetHandle()

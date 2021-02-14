@@ -91,6 +91,8 @@ bool CObj::IsStart() const
 
 void CObj::SetScene(CScene* pScene)
 {
+	m_pScene = pScene;
+
 	m_pRootComponent->SetScene(pScene);
 
 	size_t iSz = m_vecObjComponent.size();
@@ -394,13 +396,10 @@ void CObj::Load(FILE* pFile)
 			break;
 		}
 
-		if (pCom)
-		{
 			pCom->m_pScene = m_pScene;
 			pCom->m_pObj = this;
 
 			vecCom.push_back(pCom);
-		}
 	}
 
 	std::vector<Hierarchy> vecHier;
@@ -834,6 +833,7 @@ void CObj::GetAllComponent(std::vector<CSceneComponent*>& vecCom)
 void CObj::SpawnWindow()
 {
 	std::vector<CParticle*> vecParticle;
+	std::vector<CSpriteComponent*> vecSprite;
 	if (ImGui::Begin("Components"))
 	{
 		ImGui::Text(GetName().c_str());
@@ -851,19 +851,6 @@ void CObj::SpawnWindow()
 		GetAllComponent(vecCom);
 
 		size_t iSz = vecCom.size();
-
-		for (size_t i = 0; i < iSz; ++i)
-		{
-			SCENECOMPONENT_CLASS_TYPE eType = vecCom[i]->GetSceneComponentClassType();
-
-			if (eType == SCENECOMPONENT_CLASS_TYPE::PARTICLE)
-			{
-				vecParticle.push_back((CParticle*)vecCom[i]);
-			}
-		}
-
-		iSz = vecParticle.size();
-
 		char** strLayers = new char* [iSz];
 
 		static int item = 0;
@@ -871,16 +858,80 @@ void CObj::SpawnWindow()
 		{
 			strLayers[i] = new char[256];
 
-			strcpy_s(strLayers[i], vecParticle[i]->GetName().length() + 1, vecParticle[i]->GetName().c_str());
+			strcpy_s(strLayers[i], vecCom[i]->GetName().length() + 1, vecCom[i]->GetName().c_str());
 
 			if (item == i)
 			{
-				((CParticle*)vecParticle[i])->SpawnWindow();
-			}
+				SCENECOMPONENT_CLASS_TYPE eType = vecCom[i]->GetSceneComponentClassType();
 
+				switch (eType)
+				{
+				case SCENECOMPONENT_CLASS_TYPE::SCT_MESH2D:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::SCT_STATICMESH:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::SCT_CAMERA:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::SCT_SPRITE:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::SCT_COLLIDERRECT:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::SCT_COLLIDERLINE:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::SCT_COLLIDERCIRCLE:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::COLLIDEROBB2D:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::COLLIDERPIXEL:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::COLLIDER_POINT:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::UI_IMAGE:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::UI_SPRITE:
+					((CSpriteComponent*)vecCom[i])->SpawnWindow();
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::UI_BUTTON:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::UI_BAR:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::UI_TITLEBAR:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::UI_PANEL:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::UI_FONT:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::SOUND:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::RENDERER:
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::PARTICLE:
+					((CParticle*)vecCom[i])->SpawnWindow();
+					break;
+				case SCENECOMPONENT_CLASS_TYPE::LINE:
+					break;
+				}
+
+				CTransform* pTrans =  vecCom[i]->GetTransform();
+				CRenderer* pRenderer = vecCom[i]->GetRenderer();
+
+				if (pTrans)
+				{
+					pTrans->SpawnWindow();
+				}
+
+				if (pRenderer)
+				{
+					pRenderer->SpawnWindow();
+				}
+
+				SAFE_RELEASE(pRenderer);
+
+				vecCom[i]->CComponent::SpawnWindow();
+			}
 		}
 
-		ImGui::ListBox("Particles", &item, strLayers, (int)iSz);
+		ImGui::ListBox("Components", &item, strLayers, (int)iSz);
 
 		for (size_t i = 0; i < iSz; ++i)
 		{
@@ -888,6 +939,7 @@ void CObj::SpawnWindow()
 		}
 
 		delete[] strLayers;
+
 	}
 
 	ImGui::End();

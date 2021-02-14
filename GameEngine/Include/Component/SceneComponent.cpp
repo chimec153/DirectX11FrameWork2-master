@@ -14,8 +14,6 @@ CSceneComponent::CSceneComponent()	:
 	m_pParent(nullptr),
 	m_eSceneComponentType(SCENE_COMPONENT_TYPE::SCT_2D),
 	m_eSceneComponentClassType(SCENECOMPONENT_CLASS_TYPE::SCT_MESH2D),
-	m_pMaterial(nullptr),
-	m_pMesh(nullptr),
 	m_bInst(false)
 {
 	m_eType = COMPONENT_TYPE::CT_SCENE;
@@ -69,17 +67,6 @@ CSceneComponent::CSceneComponent(const CSceneComponent& com)	:
 		pComponent->InheritScale();
 	}
 
-	m_pMesh = com.m_pMesh;
-
-	if (m_pMesh)
-		m_pMesh->AddRef();
-
-	if (com.m_pMaterial)
-		m_pMaterial = com.m_pMaterial->Clone();
-
-	else
-		m_pMaterial = nullptr;
-
 	m_bInst = com.m_bInst;
 
 	if (com.m_pRenderer)
@@ -93,8 +80,6 @@ CSceneComponent::~CSceneComponent()
 {
 	SAFE_DELETE(m_pTransform);
 	SAFE_RELEASE_VECLIST(m_vecChild);
-	SAFE_RELEASE(m_pMesh);
-	SAFE_RELEASE(m_pMaterial);
 	SAFE_RELEASE(m_pRenderer);
 }
 
@@ -146,11 +131,11 @@ bool CSceneComponent::Detach(CSceneComponent* pChild)
 
 	pChild->m_pTransform->m_pParent = nullptr;
 
-	pChild->Release();
-
 	pChild->SetRelativePos(pChild->GetRelativePos());
 	pChild->SetRelativeRot(pChild->GetRelativeRot());
 	pChild->SetRelativeScale(pChild->GetRelativeScale());
+
+	pChild->Release();
 
 	return true;
 }
@@ -228,16 +213,9 @@ void CSceneComponent::AddRenderState(const std::string& strKey)
 
 CRenderState* CSceneComponent::FindRenderState(const std::string& strKey)
 {
-	size_t iSz = m_vecRenderState.size();
-
-	for (size_t i = 0; i < iSz; ++i)
+	if (m_pRenderer)
 	{
-		if (m_vecRenderState[i]->GetName() == strKey)
-		{
-			m_vecRenderState[i]->AddRef();
-
-			return m_vecRenderState[i];
-		}
+		return m_pRenderer->FindState(strKey);
 	}
 
 	return nullptr;
@@ -253,67 +231,64 @@ void CSceneComponent::DeleteRenderState(const std::string& strKey)
 
 void CSceneComponent::SetState()
 {
-	size_t iSz = m_vecRenderState.size();
-
-	for (size_t i = 0; i < iSz; ++i)
+	if (m_pRenderer)
 	{
-		m_vecRenderState[i]->SetState();
+		m_pRenderer->SetState();
 	}
 }
 
 void CSceneComponent::ResetState()
 {
-	size_t iSz = m_vecRenderState.size();
-
-	for (size_t i = 0; i < iSz; ++i)
+	if (m_pRenderer)
 	{
-		m_vecRenderState[i]->ResetState();
+		m_pRenderer->ResetState();
 	}
 }
 
 CMesh* CSceneComponent::GetMesh() const
 {
-	if (m_pMesh)
-		m_pMesh->AddRef();
+	if (m_pRenderer)
+		return m_pRenderer->GetMesh();
 
-	return m_pMesh;
+	else
+	{
+		return nullptr;
+	}
 }
 
 void CSceneComponent::SetMesh(const std::string& strName)
 {
-	SAFE_RELEASE(m_pMesh);
-
-	m_pMesh = GET_SINGLE(CResourceManager)->FindMesh(strName);
+	if (m_pRenderer)
+		m_pRenderer->SetMesh(strName);
 }
 
 void CSceneComponent::SetMesh(CMesh* pMesh)
 {
-	SAFE_RELEASE(m_pMesh);
-
-	m_pMesh = pMesh;
-
-	if (m_pMesh)
-	{
-		m_pMesh->AddRef();
-	}
+	if (m_pRenderer)
+		m_pRenderer->SetMesh(pMesh);
 }
 
 CMaterial* CSceneComponent::GetMaterial() const
 {
-	if (m_pMaterial)
-		m_pMaterial->AddRef();
+	if (m_pRenderer)
+		return m_pRenderer->GetMaterial();
 
-	return m_pMaterial;
+	else
+	{
+		return nullptr;
+	}
 }
 
 void CSceneComponent::SetMaterial(CMaterial* pMaterial)
 {
-	SAFE_RELEASE(m_pMaterial);
+	if (m_pRenderer)
+		m_pRenderer->SetMaterial(pMaterial);
+}
 
-	m_pMaterial = pMaterial;
-
-	if (m_pMaterial)
-		m_pMaterial->AddRef();
+void CSceneComponent::SetMaterial(const std::string& strMtrl)
+{
+	if (m_pRenderer)
+		m_pRenderer->SetMaterial(strMtrl);
 }
 
 bool CSceneComponent::IsInstanced() const
@@ -363,24 +338,60 @@ CTransform* CSceneComponent::GetTransform() const
 	return m_pTransform;
 }
 
+void CSceneComponent::SetShader(const std::string& strShader)
+{
+	if (m_pRenderer)
+	{
+		m_pRenderer->SetShader(strShader);
+	}
+}
+
+void CSceneComponent::SetShader(CShader* pShader)
+{
+	if (m_pRenderer)
+	{
+		m_pRenderer->SetShader(pShader);
+	}
+}
+
+CShader* CSceneComponent::GetShader() const
+{
+	if (m_pRenderer)
+		return m_pRenderer->GetShader();
+
+	return nullptr;
+}
+
 void CSceneComponent::SetTexture(REGISTER_TYPE eType, const std::string& strTag, int iRegister, int iCount, unsigned int iType)
 {
-	m_pMaterial->SetTexture(eType, strTag, iRegister, iCount, iType);
+	if (m_pRenderer)
+	{
+		m_pRenderer->SetTexture(eType, strTag, iRegister, iCount, iType);
+	}
 }
 
 void CSceneComponent::SetTexture(REGISTER_TYPE eType, CTexture* pTex, int iRegister, int iCount, unsigned int iType)
 {
-	m_pMaterial->SetTexture(eType, pTex, iRegister, iCount, iType);
+	if (m_pRenderer)
+	{
+		m_pRenderer->SetTexture(eType, pTex, iRegister, iCount, iType);
+	}
 }
 
 void CSceneComponent::SetTexture(REGISTER_TYPE eType, const std::string& strTag, const TCHAR* pFileName, const std::string& strPathName, int iRegister, int iCount, unsigned int iType)
 {
-	m_pMaterial->SetTexture(eType, strTag, pFileName, strPathName, iRegister, iCount, iType);
+	if (m_pRenderer)
+	{
+		m_pRenderer->SetTexture(eType, strTag, pFileName, strPathName, iRegister, iCount, iType);
+	}
 }
 
 void CSceneComponent::SetTextureFromFullPath(REGISTER_TYPE eType, const std::string& strTag, const TCHAR* pFullPath, int iRegister, int iCount, unsigned int iType)
 {
-	m_pMaterial->SetTextureFromFullPath(eType, strTag, pFullPath, iRegister, iCount, iType);
+	if (m_pRenderer)
+	{
+		m_pRenderer->SetTexture(eType, strTag, iRegister, iCount, iType);
+	}
 }
 
 bool CSceneComponent::Init()
@@ -503,14 +514,14 @@ bool CSceneComponent::Init(FILE* pFile)
 							vecVertexUV[j].vUV == vecUV[vecTex[i] - 1])
 						{
 							bCheck = false;
-							vecIdx.push_back(j);
+							vecIdx.push_back((int)j);
 							break;
 						}
 					}
 
 					if (bCheck)
 					{
-						vecIdx.push_back(vecVertexUV.size());
+						vecIdx.push_back((int)vecVertexUV.size());
 
 						VertexColor vColor = {};
 
@@ -540,11 +551,7 @@ bool CSceneComponent::Init(FILE* pFile)
 			DXGI_FORMAT_R16_UINT);
 	}
 
-	CMesh* pMesh = GET_SINGLE(CResourceManager)->FindMesh(GetName());
-
-	SetMesh(pMesh);
-
-	SAFE_RELEASE(pMesh);
+	SetMesh(GetName());
 
 	return true;
 }
@@ -678,8 +685,10 @@ void CSceneComponent::Render(float fTime)
 {
 	m_pTransform->SetTransform();
 
-	if(m_pMaterial)
-		m_pMaterial->SetMaterial();
+	if (m_pRenderer)
+	{
+		m_pRenderer->Render(fTime);
+	}
 }
 
 void CSceneComponent::PostRender(float fTime)
@@ -718,7 +727,9 @@ void CSceneComponent::Save(FILE* pFile)
 	fwrite(&m_eSceneComponentType, 4, 1, pFile);
 	fwrite(&m_eSceneComponentClassType, 4, 1, pFile);
 
+	m_pRenderer->Save(pFile);
 
+	fwrite(&m_bInst, 1, 1, pFile);
 }
 
 void CSceneComponent::Load(FILE* pFile)
@@ -736,11 +747,9 @@ void CSceneComponent::Load(FILE* pFile)
 	fread(&m_eSceneComponentType, 4, 1, pFile);
 	fread(&m_eSceneComponentClassType, 4, 1, pFile);
 
-	CMesh* pMesh = (CMesh*)GET_SINGLE(CResourceManager)->GetDefaultMesh();
+	m_pRenderer->Load(pFile);
 
-	SetMesh(pMesh);
-
-	SAFE_RELEASE(pMesh);
+	fread(&m_bInst, 1, 1, pFile);
 }
 
 void CSceneComponent::SetInheritScale(bool bInherit)

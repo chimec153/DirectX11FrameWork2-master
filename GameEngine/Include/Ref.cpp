@@ -54,7 +54,10 @@ void CRef::Load(FILE* pFile)
 	char strTag[256] = {};
 
 	fread(&iLength, 4, 1, pFile);
-	fread(strTag, 1, iLength, pFile);
+	if (iLength > 0)
+	{
+		fread(strTag, 1, iLength, pFile);
+	}
 
 	m_strName = strTag;
 

@@ -120,19 +120,19 @@ bool CMesh2D::CreateMesh()
 
 	v[0].vPos = Vector3(0.f, 1.f, 0.f);
 	v[0].vUV = Vector2(0.f, 0.f);
-	v[0].vColor = Vector4::Black;
+	v[0].vColor = Vector4::White;
 
 	v[1].vPos = Vector3(1.f, 1.f, 0.f);
 	v[1].vUV = Vector2(1.f, 0.f);
-	v[1].vColor = Vector4::Black;
+	v[1].vColor = Vector4::White;
 
 	v[2].vPos = Vector3(0.f, 0.f, 0.f);
 	v[2].vUV = Vector2(0.f, 1.f);
-	v[2].vColor = Vector4::Black;
+	v[2].vColor = Vector4::White;
 
 	v[3].vPos = Vector3(1.f, 0.f, 0.f);
 	v[3].vUV = Vector2(1.f, 1.f);
-	v[3].vColor = Vector4::Black;
+	v[3].vColor = Vector4::White;
 
 	m_tVB.iSize = sizeof(VertexColor);
 	m_tVB.iCount = 4;

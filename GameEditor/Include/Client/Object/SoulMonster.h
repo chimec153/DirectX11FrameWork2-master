@@ -3,9 +3,10 @@
 
 enum class BOSS_TYPE
 {
-    COLOSSUS = 0x1,
-    EYECUBE = 0x2,
-    BRAINFREEZE = 0x4,
+    NONE,
+    COLOSSUS,
+    EYECUBE = 1<<1,
+    BRAINFREEZE = 1<<2,
     END
 };
 

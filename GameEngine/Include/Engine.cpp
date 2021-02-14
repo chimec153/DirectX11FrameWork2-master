@@ -17,6 +17,7 @@
 #include "Camera/CameraManager.h"
 #include "Timer.h"
 #include "Component/Camera.h"
+#include "UI/imgui/ImguiManager.h"
 
 DEFINITION_SINGLE(CEngine)
 
@@ -31,20 +32,26 @@ CEngine::CEngine()	:
 	m_pFont(nullptr),
 	m_pFontObj(nullptr),
 	m_tCBuffer(),
+#ifdef _DEBUG
 	m_bImguiEnable(true)
+#else
+	m_bImguiEnable(false)
+#endif
 {
 	CoInitializeEx(nullptr, 0);
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 	//_CrtSetBreakAlloc(23545);
+
+	FILE* fp;
+
+	AllocConsole();
+	freopen_s(&fp, "CONIN$", "r", stdin);
+	freopen_s(&fp, "CONOUT$", "w", stdout);
+	freopen_s(&fp, "CONOUT$", "w", stderr);
 }
 
 CEngine::~CEngine()
 {
-		ImGui_ImplDX11_Shutdown();
-		ImGui_ImplWin32_Shutdown();
-
-		ImGui::DestroyContext();
-
 	SAFE_RELEASE(m_pFont);
 	SAFE_RELEASE(m_pFontObj);
 	CoUninitialize();
@@ -61,6 +68,7 @@ CEngine::~CEngine()
 	DESTROY_SINGLE(CInput);
 	DESTROY_SINGLE(CCollisionManager);
 	DESTROY_SINGLE(CRenderManager);
+	DESTROY_SINGLE(CImguiManager);
 }
 
 HWND CEngine::GetHandle() const
@@ -76,6 +84,11 @@ void CEngine::SetImgui(bool bEnable)
 bool CEngine::IsImgui() const
 {
 	return m_bImguiEnable;
+}
+
+bool CEngine::IsLoop() const
+{
+	return m_bLoop;
 }
 
 bool CEngine::Init(const TCHAR* pClass, const TCHAR* pTitle,
@@ -150,7 +163,9 @@ bool CEngine::Init(HINSTANCE hInst, HWND hWnd, const TCHAR* pClass, int iWidth, 
 	if (!GET_SINGLE(CCameraManager)->Init())
 		return false;
 
-		ImGui_ImplDX11_Init(DEVICE, CONTEXT);
+	// ImGui 관리자 초기화
+	if (!GET_SINGLE(CImguiManager)->Init(m_hWnd, DEVICE, CONTEXT))
+		return false;
 
 	m_pFontObj = new CObj;
 
@@ -171,7 +186,6 @@ int CEngine::Run()
 {
 	MSG msg = {};
 
-	// 기본 메시지 루프입니다:
 	while (m_bLoop)
 	{
 		if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
@@ -269,59 +283,23 @@ void CEngine::PreRender(float fTime)
 {
 	if (m_bImguiEnable)
 	{
-		ImGui_ImplDX11_NewFrame();
-		ImGui_ImplWin32_NewFrame();
-
-		ImGui::NewFrame();
+		GET_SINGLE(CImguiManager)->PreRender(fTime);
 	}
+
 	GET_SINGLE(CSceneManager)->PreRender(fTime);
 	GET_SINGLE(CInput)->PreRender(fTime);
 }
 
 void CEngine::Render(float fTime)
 {
-	if (m_bImguiEnable)
-	{
-		static bool show_demo_window = true;
-		if (show_demo_window)
-		{
-			ImGui::ShowDemoWindow(&show_demo_window);
-		}
-
-		static char buffer[1024];
-
-		if (ImGui::Begin("Simulation Speed"))
-		{
-			CTimer* pTimer = GET_SINGLE(CTimerManager)->GetMainTimer();
-
-			float fScale = pTimer->GetTimeScale();
-
-			ImGui::SliderFloat("Speed Factor", &fScale, 0.f, 4.f);
-
-			pTimer->SetTimeScale(fScale);
-
-			ImGui::Text("Application averge %.3f ms/frame (%.1f FPS)", 
-				pTimer->GetDeltaTime() * 1000.f, pTimer->GetFPS());
-
-			ImGui::InputText("Butts", buffer, sizeof(buffer));
-
-			SAFE_RELEASE(pTimer);
-		}
-		
-		ImGui::End();
-
-		CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
-
-		pCam->SpawnControlWindow();
-
-		SAFE_RELEASE(pCam);
-	}
-
 	GET_SINGLE(CDevice)->ClearState();
 
 	GET_SINGLE(CRenderManager)->Render(fTime);
 
-	m_pFont->Render(fTime);
+	if (m_bImguiEnable)
+	{
+		m_pFont->Render(fTime);
+	}
 
 	GET_SINGLE(CInput)->Render();
 
@@ -329,19 +307,7 @@ void CEngine::Render(float fTime)
 
 	if (m_bImguiEnable)
 	{
-		ImGui::Render();
-
-		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-	}
-
-	if (m_bImguiEnable)
-	{
-		ImGuiIO& io = ImGui::GetIO();
-		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-		{
-			ImGui::UpdatePlatformWindows();
-			ImGui::RenderPlatformWindowsDefault();
-		}
+		GET_SINGLE(CImguiManager)->Render(fTime);
 	}
 
 	GET_SINGLE(CDevice)->Render();
@@ -372,28 +338,6 @@ int CEngine::Create(const TCHAR* pClass, const TCHAR* pTitle, int iWidth, int iH
 
 	ShowWindow(m_hWnd, SW_SHOW);
 	UpdateWindow(m_hWnd);
-
-	ImGui_ImplWin32_EnableDpiAwareness();
-
-	ImGui::CreateContext();
-
-	ImGuiIO& io = ImGui::GetIO();
-
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-
-	ImGui::StyleColorsDark();
-
-	ImGuiStyle& style = ImGui::GetStyle();
-
-	//if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-	//{
-	//	style.WindowRounding = 0;
-	//	style.Colors[ImGuiCol_WindowBg].w = 1.f;		
-	//}
-
-	ImGui_ImplWin32_Init(m_hWnd);
 
 	return 0;
 }

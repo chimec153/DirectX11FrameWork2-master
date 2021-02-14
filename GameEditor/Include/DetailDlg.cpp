@@ -170,7 +170,7 @@ void CDetailDlg::Update(float fTime)
 			{
 				CString strTag = CA2CT(vecState[i]->GetName().c_str());
 
-				m_ComboStates.InsertString(i, strTag);
+				m_ComboStates.InsertString((int)i, strTag);
 			}
 
 			//m_strScene = CA2CT(_itoa_s((int)pCom->GetScene(), 8));

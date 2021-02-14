@@ -51,5 +51,9 @@ public:
     void SetAnim(int iFrameMax, float fFrameTimeMax);
     void SetAccel(const Vector3& vAcc);
     void CloneCBuffer(PARTICLECBUFFER& tBuffer);
+
+public:
+    virtual void Save(FILE* pFile);
+    virtual void Load(FILE* pFile);
 };
 

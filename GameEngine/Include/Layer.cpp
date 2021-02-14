@@ -174,6 +174,22 @@ CScene* CLayer::GetScene() const
 	return m_pScene;
 }
 
+void CLayer::DeleteObject(const std::string& strTag)
+{
+	std::list<CObj*>::iterator iter = m_ObjList.begin();
+	std::list<CObj*>::iterator iterEnd = m_ObjList.end();
+
+	for (; iter != iterEnd; ++iter)
+	{
+		if ((*iter)->GetName() == strTag)
+		{
+			(*iter)->Release();
+			m_ObjList.erase(iter);
+			return;
+		}
+	}
+}
+
 bool CLayer::Init()
 {
 	return true;

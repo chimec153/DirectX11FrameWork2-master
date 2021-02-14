@@ -7,6 +7,9 @@
 #include "../Resource/ResourceManager.h"
 #include "../Resource/Material.h"
 #include "../PathManager.h"
+#include "../Component/Renderer.h"
+
+std::vector<PTILEANIM> CTileMap::m_vecAnim = {};
 
 CTileMap::CTileMap()	:
 	m_iCountX(0),
@@ -28,13 +31,13 @@ CTileMap::CTileMap(const CTileMap& map)	:
 	m_vTileSize = map.m_vTileSize;
 	m_eTileType = map.m_eTileType;
 
-	m_pTexIdx = new char[m_iCountX * m_iCountY];
+	m_pTexIdx = new char[(size_t)m_iCountX * (size_t)m_iCountY];
 
-	memcpy(m_pTexIdx, map.m_pTexIdx, m_iCountX * m_iCountY);
+	memcpy(m_pTexIdx, map.m_pTexIdx, (size_t)m_iCountX * (size_t)m_iCountY);
 
-	m_pColIdx = new char[m_iCountX * m_iCountY];
+	m_pColIdx = new char[(size_t)m_iCountX * (size_t)m_iCountY];
 
-	memcpy(m_pColIdx, map.m_pColIdx, m_iCountX * m_iCountY);
+	memcpy(m_pColIdx, map.m_pColIdx, (size_t)m_iCountX * (size_t)m_iCountY);
 }
 
 CTileMap::~CTileMap()
@@ -42,6 +45,8 @@ CTileMap::~CTileMap()
 	SAFE_RELEASE_VECLIST(m_vecTile);
 	SAFE_DELETE_ARRAY(m_pTexIdx);
 	SAFE_DELETE_ARRAY(m_pColIdx);
+	SAFE_DELETE_VECLIST(m_vecAnim);
+	SAFE_RELEASE_VECLIST(m_vecUpdateTile);
 }
 
 void CTileMap::CreateTile(int x, int y, const Vector3& vSize, const Vector2& vStart,const Vector3& vPivot, TILE_TYPE eType)
@@ -86,13 +91,16 @@ void CTileMap::CreateTile(int x, int y, const Vector3& vSize, const Vector2& vSt
 			pTile->CSceneComponent::PostUpdate(0.f);
 			pTile->SetInstance();
 			pTile->m_vSize = Vector2(vSize.x, vSize.y);
-			pTile->SetMaterial(pClone);
+			pTile->SetMaterial("Color");
+			pTile->SetShader("Standard2D");
 
 			Matrix matWV = pTile->GetMatWorld();
 
 			pTile->m_matWV = matWV;
 			pTile->m_iXTexIdx = i;
 			pTile->m_iYTexIdx = j;
+
+			pTile->m_pMap = this;
 
 			m_vecTile.push_back(pTile);
 		}
@@ -128,12 +136,12 @@ int CTileMap::GetIndex(const Vector2& vPos)	const
 
 void CTileMap::SetTileTexture(const std::string& strKey)
 {
-		m_vecTile[0]->SetTexture(REGISTER_TYPE::RT_DIF, strKey);
+		SetTexture(REGISTER_TYPE::RT_DIF, strKey);
 }
 
 void CTileMap::SetTileTexture(CTexture* pTex)
 {
-		m_vecTile[0]->SetTexture(REGISTER_TYPE::RT_DIF, pTex);
+		SetTexture(REGISTER_TYPE::RT_DIF, pTex);
 }
 
 bool CTileMap::LoadTileIdx(const char* pFileName,int iWidth, int iHeight)
@@ -142,14 +150,16 @@ bool CTileMap::LoadTileIdx(const char* pFileName,int iWidth, int iHeight)
 
 	char* pResult = strtok_s((char*)pFileName, ",", &pContext);
 
-	m_pTexIdx = new char[m_iCountX * m_iCountY];
+	m_pTexIdx = new char[(size_t)m_iCountX * (size_t)m_iCountY];
 
-	memset(m_pTexIdx, 0, m_iCountX * m_iCountY);
+	memset(m_pTexIdx, 0, (size_t)m_iCountX * (size_t)m_iCountY);
 
 	m_pTexIdx[0] = atoi(pResult);
 
-	m_vecTile[0]->m_iXTexIdx = atoi(pResult) % (int)(iWidth / 16.f) - 1;
-	m_vecTile[0]->m_iYTexIdx = atoi(pResult) / (int)(iWidth / 16.f);
+	int iSize = iWidth / 16;
+
+	m_vecTile[0]->m_iXTexIdx = (atoi(pResult) % iSize) -1;
+	m_vecTile[0]->m_iYTexIdx = atoi(pResult) / iSize;
 
 	for (int y = 0; y < m_iCountY; ++y)
 	{
@@ -169,8 +179,34 @@ bool CTileMap::LoadTileIdx(const char* pFileName,int iWidth, int iHeight)
 
 			else
 			{
-				m_vecTile[idx]->m_iXTexIdx =atoi(pResult) % (int)(iWidth / 16.f) - 1;
-				m_vecTile[idx]->m_iYTexIdx =atoi(pResult) / (int)(iWidth / 16.f);
+				m_vecTile[idx]->m_iXTexIdx = (atoi(pResult) % iSize) -1;
+				m_vecTile[idx]->m_iYTexIdx = atoi(pResult) / iSize;
+			}
+
+			size_t iAniSize = m_vecAnim.size();
+
+			for (size_t i = 0; i < iAniSize; ++i)
+			{
+				if (m_vecAnim[i]->vTexIndexs[0] % iSize == (atoi(pResult) % iSize) - 1 &&
+					m_vecAnim[i]->vTexIndexs[0] / iSize == (atoi(pResult) / iSize))
+				{
+					std::vector<Vector2> vecFrm;
+
+					size_t iSz = m_vecAnim[i]->vTexIndexs.size();
+
+					for (size_t j = 0; j < iSz; j++)
+					{
+						vecFrm.push_back(Vector2((float)(m_vecAnim[i]->vTexIndexs[j] % iSize),
+							(float)(m_vecAnim[i]->vTexIndexs[j] / iSize)));
+					}
+
+					m_vecTile[idx]->SetAnim(vecFrm, m_vecAnim[i]->fTime);
+
+					m_vecTile[idx]->AddRef();
+
+					m_vecUpdateTile.push_back(m_vecTile[idx]);
+					break;
+				}
 			}
 		}
 	}
@@ -184,9 +220,9 @@ bool CTileMap::LoadColIdx(const char* pFileName, int iWidth, int iHeight)
 
 	char* pResult = strtok_s((char*)pFileName, ",", &pContext);
 
-	m_pColIdx = new char[m_iCountX * m_iCountY];
+	m_pColIdx = new char[(size_t)m_iCountX * (size_t)m_iCountY];
 
-	memset(m_pColIdx, 0, m_iCountX * m_iCountY);
+	memset(m_pColIdx, 0, (size_t)m_iCountX * (size_t)m_iCountY);
 
 	m_pColIdx[0] = atoi(pResult);
 
@@ -247,7 +283,7 @@ void CTileMap::SetTileAnim(bool bAni)
 
 void CTileMap::SetTileOpacity(float fOp)
 {
-	CMaterial* pMtrl = m_vecTile[0]->GetMaterial();
+	CMaterial* pMtrl = GetMaterial();
 
 	Vector4 vDif = pMtrl->GetDif();
 
@@ -270,7 +306,7 @@ CTile* CTileMap::GetTile(const Vector2& vPos) const
 
 CTile* CTileMap::GetTile(int x, int y) const
 {
-	return m_vecTile[y * m_iCountX + x];
+	return m_vecTile[(size_t)y * (size_t)m_iCountX + (size_t)x];
 }
 
 CTile* CTileMap::GetTile(int idx)	const
@@ -290,40 +326,53 @@ void CTileMap::AddTileRenderState(const std::string& strKey)
 
 void CTileMap::AddAnim(const std::vector<int>& vecFrame, float fTime)
 {
-	std::vector<Vector2>	vecFrm;
+	PTILEANIM pInfo = new TILEANIM;
 
 	size_t iFrameSz = vecFrame.size();
 
-	Vector2 vSize = m_vecTile[0]->GetTextureSize();
-
-	int iSizeX = (int)(vSize.x / 16);
-
 	for (size_t i = 0; i < iFrameSz; ++i)
 	{
-		int iFrm = vecFrame[i];
-
-		vecFrm.push_back(Vector2(iFrm% iSizeX, iFrm/iSizeX));
+		pInfo->vTexIndexs.push_back(vecFrame[i]);
 	}
+	pInfo->fTime = fTime;
 
-	size_t iSz = m_vecTile.size();
+	m_vecAnim.push_back(pInfo);
+}
 
-	for (size_t i = 0; i < iSz; ++i)
+const Vector2 CTileMap::GetTextureSize() const
+{
+	CRenderer* pRenderer = GetRenderer();
+
+	Vector2 vSize = {};
+
+	if (pRenderer)
 	{
-		Vector2 vIdx = m_vecTile[i]->GetTexIdx();
-		Vector2 vFront = vecFrm.front();
+		CMaterial* pMtrl = pRenderer->GetMaterial();
 
-		if (vIdx.x == vFront.x &&
-			vIdx.y == vFront.y)
+		if (pMtrl)
 		{
-			m_vecTile[i]->SetAnim(vecFrm, fTime);
+			vSize = pMtrl->GetTextureSize();
+
+			pMtrl->Release();
 		}
+
+		pRenderer->Release();
 	}
+
+	return vSize;
+}
+
+void CTileMap::ClearAnim()
+{
+	SAFE_DELETE_VECLIST(m_vecAnim);
 }
 
 bool CTileMap::Init()
 {
 	if (!CSceneComponent::Init())
 		return false;
+
+	SetMaterial("Color");
 
 	return true;
 }
@@ -335,58 +384,24 @@ void CTileMap::Start()
 
 void CTileMap::Update(float fTime)
 {
-	CSceneComponent::Update(fTime);
+	//CSceneComponent::Update(fTime);
 }
 
 void CTileMap::PostUpdate(float fTime)
 {
-	CSceneComponent::PostUpdate(fTime);
+	//CSceneComponent::PostUpdate(fTime);
 
-	Resolution tRS = RESOLUTION;
+	size_t iSize = m_vecUpdateTile.size();
 
-	CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
-
-	Vector3 vRT = pCam->GetWorldPos() + 
-		Vector3((float)tRS.iWidth / 2.f + 16.f, (float)tRS.iHeight / 2.f + 16.f, 0.f) * pCam->GetPivot();
-	Vector3 vLB = pCam->GetWorldPos() - 
-		Vector3((float)tRS.iWidth / 2.f + 16.f, (float)tRS.iHeight / 2.f + 16.f, 0.f) * pCam->GetPivot();
-
-	SAFE_RELEASE(pCam);
-
-	Vector3 vPos = GetWorldPos();
-
-	vRT -= vPos;
-	vLB -= vPos;
-
-	vRT /= m_vTileSize;
-	vLB /= m_vTileSize;
-
-	int iStartX = (int)vLB.x;
-	int iStartY = (int)vLB.y;
-
-	int iEndX = (int)vRT.x;
-	int iEndY = (int)vRT.y;
-
-	iStartX = iStartX < 0 ? 0 : iStartX;
-	iStartY = iStartY < 0 ? 0 : iStartY;
-
-	iEndX = iEndX >= m_iCountX ? m_iCountX - 1 : iEndX;
-	iEndY = iEndY >= m_iCountY ? m_iCountY - 1 : iEndY;
-
-	for (int x = iStartX; x <= iEndX; ++x)
+	for (size_t i = 0; i < iSize; ++i)
 	{
-		for (int y = iStartY; y <= iEndY; ++y)
-		{
-			int idx = y * m_iCountX + x;
-
-			m_vecTile[idx]->PostUpdate(fTime);
-		}
+		m_vecUpdateTile[i]->PostUpdate(fTime);
 	}
 }
 
 void CTileMap::Collision(float fTime)
 {
-	CSceneComponent::Collision(fTime);
+	//CSceneComponent::Collision(fTime);
 }
 
 void CTileMap::PreRender(float fTime)
@@ -440,7 +455,6 @@ void CTileMap::PreRender(float fTime)
 
 void CTileMap::Render(float fTime)
 {
-	CSceneComponent::Render(fTime);
 }
 
 void CTileMap::PostRender(float fTime)

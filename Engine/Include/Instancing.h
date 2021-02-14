@@ -17,6 +17,7 @@ private:
 	bool				m_bAnimation;
 	class CMesh*		m_pMesh;
 	class CMaterial*	m_pMaterial;
+	class CShader*		m_pShader;
 	class CLayer*		m_pLayer;
 	class CUIFont*		m_pFont;
 	std::vector<class CSceneComponent*>		m_vecCom;
@@ -32,7 +33,7 @@ public:
 	void AddState(class CRenderState* pState);
 
 public:
-	bool Init(CMesh* pMesh, CMaterial* pMtrl, int iCount , int iSize);
+	bool Init(CMesh* pMesh, CMaterial* pMtrl, class CShader* pShader, int iCount , int iSize);
 	void SetFontRect(float l, float t, float r, float b);
 	void SetFontPos(const Vector3& vPos);
 	bool CreateInstancingBuffer(int iCount, int iSize);

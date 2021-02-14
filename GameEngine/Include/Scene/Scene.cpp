@@ -246,6 +246,8 @@ void CScene::Collision(float fTime)
 
 void CScene::PreRender(float fTime)
 {
+	m_pGameMode->PreRender(fTime);
+
 	std::list<CLayer*>::iterator iter = m_LayerList.begin();
 	std::list<CLayer*>::iterator iterEnd = m_LayerList.end();
 
@@ -269,14 +271,10 @@ void CScene::PreRender(float fTime)
 		++iter;
 	}
 
-	m_pGameMode->PreRender(fTime);
-
-#ifdef _DEBUG
 	if (GET_SINGLE(CEngine)->IsImgui())
 	{
 		SpawnWindow();
 	}
-#endif
 }
 
 void CScene::Render(float fTime)

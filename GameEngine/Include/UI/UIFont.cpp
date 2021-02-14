@@ -184,11 +184,53 @@ CUIFont* CUIFont::Clone()
 void CUIFont::Save(FILE* pFile)
 {
 	CUIControl::Save(pFile);
+
+	fwrite(&m_bShadow, 1, 1, pFile);
+	fwrite(&m_bAlpha, 1, 1, pFile);
+	fwrite(&m_bShadowAlpha, 1, 1, pFile);
+	fwrite(&m_vShadowOffset, sizeof(Vector3), 1, pFile);
+	fwrite(&m_iColor, sizeof(UINT), 1, pFile);
+	fwrite(&m_iShadowColor, sizeof(UINT), 1, pFile);
+	fwrite(&m_iLength, 4, 1, pFile);
+	fwrite(m_pText, sizeof(TCHAR), m_iLength, pFile);
+	int iLength = (int)lstrlen(m_pFont);
+	fwrite(&iLength, 4, 1, pFile);
+	fwrite(m_pFont, sizeof(TCHAR), iLength, pFile);
+	fwrite(&m_fSize, 4, 1, pFile);
+	fwrite(&m_fOpacity, 1, 1, pFile);
+	fwrite(&m_fShadowOpacity, 1, 1, pFile);
+	fwrite(&m_tRect, sizeof(D2D1_RECT_F), 1, pFile);
+	fwrite(&m_eAlignH, 4, 1, pFile);
+	fwrite(&m_eAlignV, 4, 1, pFile);
 }
 
 void CUIFont::Load(FILE* pFile)
 {
 	CUIControl::Load(pFile);
+
+	fread(&m_bShadow, 1, 1, pFile);
+	fread(&m_bAlpha, 1, 1, pFile);
+	fread(&m_bShadowAlpha, 1, 1, pFile);
+	fread(&m_vShadowOffset, sizeof(Vector3), 1, pFile);
+	fread(&m_iColor, sizeof(UINT), 1, pFile);
+	fread(&m_iShadowColor, sizeof(UINT), 1, pFile);
+	fread(&m_iLength, 4, 1, pFile);
+	fread(m_pText, sizeof(TCHAR), m_iLength, pFile);
+	int iLength = 0;
+	fread(&iLength, 4, 1, pFile);
+	fread(m_pFont, sizeof(TCHAR), iLength, pFile);
+	fread(&m_fSize, 4, 1, pFile);
+	fread(&m_fOpacity, 1, 1, pFile);
+	fread(&m_fShadowOpacity, 1, 1, pFile);
+	fread(&m_tRect, sizeof(D2D1_RECT_F), 1, pFile);
+	fread(&m_eAlignH, 4, 1, pFile);
+	fread(&m_eAlignV, 4, 1, pFile);
+
+	m_pTarget = RENDERTARGET2D;
+
+	SetColor(m_iColor);
+	SetShadowColor(m_iShadowColor);
+	CreateTextLayout();
 }
 
 void CUIFont::SetText(const TCHAR* pText)
@@ -279,7 +321,7 @@ void CUIFont::SetShadowColor(float r, float g, float b, float a)
 
 	m_pShadowColor = GET_SINGLE(CFontManager)->CreateBrush(r, g, b, a);
 
-	m_bShadow = true;
+	//m_bShadow = true;
 }
 
 void CUIFont::SetShadowColor(BYTE r, BYTE g, BYTE b, BYTE a)
@@ -288,7 +330,7 @@ void CUIFont::SetShadowColor(BYTE r, BYTE g, BYTE b, BYTE a)
 
 	m_pShadowColor = GET_SINGLE(CFontManager)->CreateBrush(r, g, b, a);
 
-	m_bShadow = true;
+	//m_bShadow = true;
 }
 
 void CUIFont::SetShadowColor(UINT iColor)
@@ -297,7 +339,7 @@ void CUIFont::SetShadowColor(UINT iColor)
 
 	m_pShadowColor = GET_SINGLE(CFontManager)->CreateBrush(iColor);
 
-	m_bShadow = true;
+	//m_bShadow = true;
 }
 
 void CUIFont::SetColor(float r, float g, float b, float a)

@@ -7,6 +7,8 @@
 #include "Scene/SceneManager.h"
 #include "RenderManager.h"
 #include "Render/RenderState.h"
+#include "Resource/Shader.h"
+#include "Engine.h"
 
 CInstancing::CInstancing()	:
 	m_pBuffer(nullptr),
@@ -14,6 +16,7 @@ CInstancing::CInstancing()	:
 	m_bAnimation(false),
 	m_pMesh(nullptr),
 	m_pMaterial(nullptr),
+	m_pShader(nullptr),
 	m_pLayer(nullptr),
 	m_pFont(nullptr)
 {
@@ -30,6 +33,7 @@ CInstancing::~CInstancing()
 
 	SAFE_RELEASE(m_pMesh);
 	SAFE_RELEASE(m_pMaterial);
+	SAFE_RELEASE(m_pShader);
 	SAFE_RELEASE(m_pFont);
 	SAFE_RELEASE_VECLIST(m_vecState);
 }
@@ -77,10 +81,12 @@ void CInstancing::AddState(CRenderState* pState)
 		}
 	}
 
+	pState->AddRef();
+
 	m_vecState.push_back(pState);
 }
 
-bool CInstancing::Init(CMesh* pMesh, CMaterial* pMtrl, int iCount , int iSize)
+bool CInstancing::Init(CMesh* pMesh, CMaterial* pMtrl, CShader* pShader, int iCount , int iSize)
 {
 	m_pMesh = pMesh;
 
@@ -89,6 +95,11 @@ bool CInstancing::Init(CMesh* pMesh, CMaterial* pMtrl, int iCount , int iSize)
 
 	if (pMtrl)
 		m_pMaterial = pMtrl->Clone();
+
+	m_pShader = pShader;
+
+	if (m_pShader)
+		m_pShader->AddRef();
 
 	CScene* pScene = GET_SINGLE(CSceneManager)->GetScene();
 
@@ -221,6 +232,7 @@ void CInstancing::Update(float fTime)
 
 	wcscat_s(strName, strCount);
 
+	m_pFont->Enable(GET_SINGLE(CEngine)->IsImgui());
 	m_pFont->SetText(strName);
 }
 
@@ -232,6 +244,8 @@ void CInstancing::Render(float fTime)
 	{
 		m_vecState[i]->SetState();
 	}
+
+	m_pShader->SetShader();
 
 	m_pMaterial->SetMaterial();
 

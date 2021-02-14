@@ -16,6 +16,9 @@
 #include "Layer.h"
 #include "Scene/SceneManager.h"
 #include "Component/Renderer.h"
+#include "Tile/TileMap.h"
+#include "Resource/ShaderManager.h"
+#include "Resource/Shader.h"
 
 DEFINITION_SINGLE(CRenderManager)
 
@@ -107,6 +110,15 @@ bool CRenderManager::Init()
 
 	SAFE_RELEASE(pState);
 
+	AddDepthStencilDesc("DepthWriteForeGround", true, D3D11_DEPTH_WRITE_MASK_ALL, D3D11_COMPARISON_LESS,
+		true, 0xff, 0xff, tFrt, tBck);
+
+	pState = (CDepthStencilState*)FindState("DepthWriteForeGround");
+
+	pState->SetStencilRef(0x1);
+
+	SAFE_RELEASE(pState);
+
 	return true;
 }
 
@@ -136,7 +148,11 @@ bool CRenderManager::AddComponent(CSceneComponent* pComponent)
 			{
 				pInst = new CInstancing;
 
-				pInst->Init(pMesh, pMtrl, 1000, sizeof(InstancedData));
+				CShader* pShader = pComponent->GetShader();
+
+				pInst->Init(pMesh, pMtrl, pShader, 1000, sizeof(InstancedData));
+
+				SAFE_RELEASE(pShader);
 
 				CLayer* pLayer = pComponent->GetLayer();
 
@@ -199,19 +215,19 @@ bool CRenderManager::AddComponent(CSceneComponent* pComponent)
 			{
 				pInst = new CInstancing;
 
-				CMaterial* pClone = pMtrl->Clone();
-
-				pClone->SetShader("Inst");
-
 				if (eType == SCENECOMPONENT_CLASS_TYPE::SCT_SPRITE)
 				{
-					CTexture* pTex = ((CSpriteComponent*)pComponent)->GetTexture();
+					//CTexture* pTex = ((CSpriteComponent*)pComponent)->GetTexture();
 
-					pClone->SetTexture(REGISTER_TYPE::RT_DIF, pTex);
+					//pClone->SetTexture(REGISTER_TYPE::RT_DIF, pTex);
 
-					SAFE_RELEASE(pTex);
+					//SAFE_RELEASE(pTex);
 
-					pInst->Init(pMesh, pClone, 10000, sizeof(InstancedData2D));
+					CShader* pShader = GET_SINGLE(CShaderManager)->FindShader("Inst");
+
+					pInst->Init(pMesh, pMtrl, pShader, 10000, sizeof(InstancedData2D));
+
+					SAFE_RELEASE(pShader);
 				}
 
 				else if (eType == SCENECOMPONENT_CLASS_TYPE::COLLIDEROBB2D ||
@@ -221,13 +237,20 @@ bool CRenderManager::AddComponent(CSceneComponent* pComponent)
 					eType == SCENECOMPONENT_CLASS_TYPE::SCT_COLLIDERLINE ||
 					eType == SCENECOMPONENT_CLASS_TYPE::SCT_COLLIDERCIRCLE)
 				{
-					pClone->SetShader("InstCollider");
-					pInst->Init(pMesh, pClone, 10000, sizeof(INSTCOLLIDER2D));
+					CShader* pShader = GET_SINGLE(CShaderManager)->FindShader("InstCollider");
+
+					pInst->Init(pMesh, pMtrl, pShader, 10000, sizeof(INSTCOLLIDER2D));
+
+					SAFE_RELEASE(pShader);
 				}
 
 				else
 				{
-					pInst->Init(pMesh, pClone, 10000, sizeof(InstancedData2D));
+					CShader* pShader = pComponent->GetShader();
+
+					pInst->Init(pMesh, pMtrl, pShader, 10000, sizeof(InstancedData2D));
+
+					SAFE_RELEASE(pShader);
 				}
 
 				CRenderer* pRenderer = pComponent->GetRenderer();
@@ -248,8 +271,6 @@ bool CRenderManager::AddComponent(CSceneComponent* pComponent)
 				pLayer->AddInst(pInst);
 
 				pInst->SetLayer(pLayer);
-
-				SAFE_RELEASE(pClone);
 
 				m_mapInstancing.insert(std::make_pair(iKey, pInst));
 			}
@@ -584,7 +605,7 @@ bool CRenderManager::CreateRasterizerState(const std::string& strTag)
 	return true;
 }
 
-bool CRenderManager::CreateInstancing(CMesh* pMesh, CMaterial* pMtrl, int iCount, int iSize)
+bool CRenderManager::CreateInstancing(CMesh* pMesh, CMaterial* pMtrl, CShader* pShader, int iCount, int iSize)
 {
 	unsigned int iMtrlKey = GetHashKey(pMtrl->GetName());
 	unsigned int iMeshKey = GetHashKey(pMesh->GetName());
@@ -602,7 +623,7 @@ bool CRenderManager::CreateInstancing(CMesh* pMesh, CMaterial* pMtrl, int iCount
 
 	pInst = new CInstancing;
 
-	if (!pInst->Init(pMesh, pMtrl, iCount, iSize))
+	if (!pInst->Init(pMesh, pMtrl, pShader, iCount, iSize))
 	{
 		SAFE_DELETE(pInst);
 		return false;
@@ -633,23 +654,21 @@ void CRenderManager::AddTileInstancingData(CTile* pTile)
 	{
 		pTileInst = new CInstancing;
 
-		CMaterial* pTileMtrl = pTile->GetMaterial();
+		CMaterial* pTileMtrl = pTile->GetMap()->GetMaterial();
 
-		CMaterial* pClone = pTileMtrl->Clone();
-
-		pClone->SetShader("Inst");
+		CShader* pShader = GET_SINGLE(CShaderManager)->FindShader("Inst");
 
 		CMesh* pMesh = (CMesh*)GET_SINGLE(CResourceManager)->GetDefaultMesh();
 
-		if (!pTileInst->Init(pMesh, pClone, 10000, sizeof(InstancedData2D)))
+		if (!pTileInst->Init(pMesh, pTileMtrl, pShader,10000, sizeof(InstancedData2D)))
 		{
 			SAFE_DELETE(pTileInst);
-			SAFE_RELEASE(pClone);
 			SAFE_RELEASE(pMesh);
-
 			SAFE_RELEASE(pTileMtrl);
 			return;
 		}
+
+		SAFE_RELEASE(pShader);
 
 		pLayer->SetTileInst(pTileInst);
 
@@ -657,7 +676,7 @@ void CRenderManager::AddTileInstancingData(CTile* pTile)
 
 		pScene->SortInstText();
 
-		CRenderer* pRenderer = pTile->GetRenderer();
+		CRenderer* pRenderer = pTile->GetMap()->GetRenderer();
 
 		std::vector<CRenderState*> vecState = pRenderer->GetVecRenderState();
 
@@ -669,14 +688,7 @@ void CRenderManager::AddTileInstancingData(CTile* pTile)
 		}
 
 		SAFE_RELEASE(pRenderer);
-
-		if (pLayer->GetName() == "1_FG1")
-		{
-			pTileInst->AddState("ForeGround");
-		}
-
 		SAFE_RELEASE(pTileMtrl);
-		SAFE_RELEASE(pClone);
 		SAFE_RELEASE(pMesh);
 	}
 

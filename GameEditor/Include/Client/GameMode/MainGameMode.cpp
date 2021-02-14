@@ -60,6 +60,10 @@ bool CMainGameMode::Init()
 {
 	GET_SINGLE(CSoundManager)->Stop("Hub1");
 
+	int iSlot = GET_SINGLE(CBossManager)->GetSlot();
+
+	SLOTINFO tInfo = GET_SINGLE(CBossManager)->GetInfo(iSlot);
+
 	static bool bInit = false;
 
 	if (!bInit)
@@ -81,7 +85,7 @@ bool CMainGameMode::Init()
 
 	CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
 
-	pCam->SetRect(0.35f, 0.65f, 0.35f, 0.65f);
+	pCam->SetRect(0.3375f, 0.6625f, 0.3375f, 0.6625f);
 	pCam->SetCallBack<CMainGameMode>(this, &CMainGameMode::Open);
 
 	SAFE_RELEASE(pCam);
@@ -93,6 +97,10 @@ bool CMainGameMode::Init()
 	CPlayer* pPlayer = m_pScene->CreateObject<CPlayer>("player", pLayer);
 
 	SetPlayer(pPlayer);
+
+	CTileMap::ClearAnim();
+
+	LoadXml("IMG\\jam.png.xml");
 
 	LoadXml("MAPS\\JAM\\JAM.tmx");
 
@@ -108,9 +116,7 @@ bool CMainGameMode::Init()
 	SAFE_RELEASE(pBow);
 	SAFE_RELEASE(pArrow);
 
-	SAFE_RELEASE(pPlayer);
-
-	//LoadXml("IMG\\jam.png.xml");
+	SAFE_RELEASE(pPlayer);	
 
 	pCam = GET_SINGLE(CCameraManager)->GetMainCam();
 
@@ -197,12 +203,6 @@ bool CMainGameMode::Init()
 	pBossCom->SetPivot(0.5f, 0.5f, 0.f);
 
 	pBossCom->CreateSprite("Effect2", "BossEffect1", LOOP_OPTION::LOOP);
-
-	//pBossCom->AddNotify("Effect2", "End", 3.f);
-
-	//pBossCom->AddCallBack<CEffect>("Effect2", "End", pBossEffect, &CEffect::Destroy);
-
-	//pBossCom->AddRenderState("AlphaBlend");
 	pBossCom->AddRenderState("DepthNoWrite");
 
 	pBossEffect->SetRootComponent(pBossCom);
@@ -226,14 +226,10 @@ bool CMainGameMode::Init()
 	pColEft->SetInheritScale(false);
 	pColEft->AddRenderState("DepthNoWrite");
 
-	CSoulMonster* pMon = GET_SINGLE(CBossManager)->FindMonster("boss_colossus");
-
-	if (!pMon)
+	if (!((int)tInfo.eType & (int)BOSS_TYPE::COLOSSUS))
 	{
 		pColEft->Enable(false);
 	}
-
-	SAFE_RELEASE(pMon);
 
 	pBossCom->AddChild(pColEft);
 
@@ -249,14 +245,10 @@ bool CMainGameMode::Init()
 	pColEft->SetInheritScale(false);
 	pColEft->AddRenderState("DepthNoWrite");
 
-	pMon = GET_SINGLE(CBossManager)->FindMonster("boss_eyecube");
-
-	if (!pMon)
+	if (!((int)tInfo.eType & (int)BOSS_TYPE::EYECUBE))
 	{
 		pColEft->Enable(false);
 	}
-
-	SAFE_RELEASE(pMon);
 
 	pBossCom->AddChild(pColEft);
 
@@ -272,14 +264,10 @@ bool CMainGameMode::Init()
 	pColEft->SetInheritScale(false);
 	pColEft->AddRenderState("DepthNoWrite");
 
-	pMon = GET_SINGLE(CBossManager)->FindMonster("boss_brainfreeze");
-
-	if (!pMon)
+	if (!((int)tInfo.eType & (int)BOSS_TYPE::BRAINFREEZE))
 	{
 		pColEft->Enable(false);
 	}
-
-	SAFE_RELEASE(pMon);
 
 	pBossCom->AddChild(pColEft);
 
@@ -320,7 +308,7 @@ bool CMainGameMode::Init()
 	pCom->CreateSprite("Idle", "MegaDoorL", LOOP_OPTION::LOOP);
 	pCom->SetWorldScale(88.f, 224.f, 0.f);
 	pCom->SetPivot(0.5f, 0.5f, 0.f);
-	pCom->SetWorldPos(1332.f, 2344.f, 0.f);
+	pCom->SetWorldPos(1332.f, 2360.f, 0.f);
 	pCom->AddRenderState("DepthNoWrite");	
 
 	CColliderRect* pLRC = pDoor->CreateComponent<CColliderRect>("DoorLBody", m_pScene->FindLayer("Temp"));
@@ -1093,7 +1081,7 @@ void CMainGameMode::LoadParticle()
 
 	SAFE_RELEASE(pSRV);
 
-	CParticleSystem* pDustParticle = GET_SINGLE(CResourceManager)->CreateParticle("Dust", false, 64, sizeof(PARTICLE), 0,
+	CParticleSystem* pDustParticle = GET_SINGLE(CResourceManager)->CreateParticle("Dust", false, 128, sizeof(PARTICLE), 0,
 		(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY);
 
 	SAFE_RELEASE(pDustParticle);
@@ -1103,18 +1091,19 @@ void CMainGameMode::LoadParticle()
 
 	if (pDustSRV)
 	{
-		pDustSRV->SetStartColor(Vector4(0.5f, 0.5f, 0.5f, 1.f));
-		pDustSRV->SetEndColor(Vector4(0.4f, 0.4f, 0.4f, 1.f));
+		pDustSRV->SetStartColor(Vector4(0.2f, 0.2f, 0.2f, 1.f));
+		pDustSRV->SetEndColor(Vector4(0.2f, 0.2f, 0.2f, 0.f));
 		pDustSRV->SetEndScale(Vector3(32.f, 32.f, 0.f));
-		pDustSRV->SetStartScale(Vector3(1.f, 1.f, 0.f));
-		pDustSRV->SetMinSpeed(32.f);
-		pDustSRV->SetMaxSpeed(32.f);
+		pDustSRV->SetStartScale(Vector3(32.f, 32.f, 0.f));
+		pDustSRV->SetMinSpeed(112.f);
+		pDustSRV->SetMaxSpeed(112.f);
+		pDustSRV->SetAccel(Vector3(-112.f, 0.f, 0.f));
 		pDustSRV->SetMove(true);
 		pDustSRV->SetMaxLifeTime(1.f);
 		pDustSRV->SetMinLifeTime(1.f);
-		pDustSRV->SetMaxCount(64);
-		pDustSRV->SetRange(Vector3(32.f, 32.f, 32.f));
-		pDustSRV->SetAngle(XM_PIDIV2 / 3.f);
+		pDustSRV->SetMaxCount(128);
+		pDustSRV->SetRange(Vector3(192.f, 192.f, 192.f));
+		pDustSRV->SetAngle(XM_PI);
 	}
 
 	SAFE_RELEASE(pDustSRV);
@@ -1160,15 +1149,15 @@ void CMainGameMode::LoadParticle()
 		pIceSRV->SetEndColor(Vector4(1.f, 1.f, 1.f, 0.f));
 		pIceSRV->SetEndScale(Vector3(32.f, 32.f, 0.f));
 		pIceSRV->SetStartScale(Vector3(0.f, 0.f, 0.f));
-		pIceSRV->SetMinSpeed(8.f);
-		pIceSRV->SetMaxSpeed(8.f);
+		pIceSRV->SetMinSpeed(16.f);
+		pIceSRV->SetMaxSpeed(16.f);
 		pIceSRV->SetMoveDir(Vector3(0.f, 1.f, 0.f));
 		pIceSRV->SetMove(true);
 		pIceSRV->SetMaxLifeTime(1.f);
 		pIceSRV->SetMinLifeTime(1.f);
 		pIceSRV->SetMaxCount(32);
 		pIceSRV->SetRange(Vector3(320.f, 240.f, 0.f));
-		pIceSRV->SetAngle(XM_PIDIV2);
+		pIceSRV->SetAngle(XM_PI);
 	}
 
 	SAFE_RELEASE(pIceSRV);
@@ -1184,13 +1173,13 @@ void CMainGameMode::LoadParticle()
 	if (pSnowSRV)
 	{
 		pSnowSRV->SetStartColor(Vector4(1.f, 1.f, 1.f, 1.f));
-		pSnowSRV->SetEndColor(Vector4(1.f, 1.f, 1.f, 1.f));
+		pSnowSRV->SetEndColor(Vector4(1.f, 1.f, 1.f, 0.f));
 		pSnowSRV->SetEndScale(Vector3(16.f, 16.f, 0.f));
 		pSnowSRV->SetStartScale(Vector3(16.f, 16.f, 0.f));
 		pSnowSRV->SetMaxSpeed(8.f);
 		pSnowSRV->SetMinSpeed(8.f);
 		pSnowSRV->SetMoveDir(Vector3(0.f, 1.f, 0.f));
-		pSnowSRV->SetMove(false);
+		pSnowSRV->SetMove(true);
 		pSnowSRV->SetMaxLifeTime(1.f);
 		pSnowSRV->SetMinLifeTime(1.f);
 		pSnowSRV->SetMaxCount(12);
@@ -1199,7 +1188,7 @@ void CMainGameMode::LoadParticle()
 
 	SAFE_RELEASE(pSnowSRV);
 
-	CParticleSystem* pGrassParticle = GET_SINGLE(CResourceManager)->CreateParticle("Grass", false, 64, sizeof(PARTICLE), 0,
+	CParticleSystem* pGrassParticle = GET_SINGLE(CResourceManager)->CreateParticle("Grass", false, 512, sizeof(PARTICLE), 0,
 		(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY);
 
 	SAFE_RELEASE(pGrassParticle);
@@ -1209,20 +1198,20 @@ void CMainGameMode::LoadParticle()
 
 	if (pGrassSRV)
 	{
-		pGrassSRV->SetStartColor(Vector4(22.f / 255.f, 63.f / 255.f, 61.f / 255.f, 1.f));
-		pGrassSRV->SetEndColor(Vector4(22.f / 255.f, 63.f / 255.f, 61.f / 255.f, 0.f));
-		pGrassSRV->SetEndScale(Vector3(4.f, 4.f, 0.f));
-		pGrassSRV->SetStartScale(Vector3(4.f, 4.f, 0.f));
-		pGrassSRV->SetMaxSpeed(50.f);
-		pGrassSRV->SetMinSpeed(10.f);
+		pGrassSRV->SetStartColor(Vector4(120.f / 255.f, 180.f / 255.f, 130.f / 255.f, 1.f));
+		pGrassSRV->SetEndColor(Vector4(120.f / 255.f, 180.f / 255.f, 130.f / 255.f, 0.f));
+		pGrassSRV->SetEndScale(Vector3(2.f, 2.f, 0.f));
+		pGrassSRV->SetStartScale(Vector3(2.f, 2.f, 0.f));
+		pGrassSRV->SetMaxSpeed(64.f);
+		pGrassSRV->SetMinSpeed(64.f);
 		pGrassSRV->SetMoveDir(Vector3(0.f, 1.f, 0.f));
 		pGrassSRV->SetMove(true);
-		pGrassSRV->SetMaxLifeTime(1.f);
-		pGrassSRV->SetMinLifeTime(1.f);
-		pGrassSRV->SetMaxCount(64);
-		pGrassSRV->SetRange(Vector3(20.f, 20.f, 0.f));
+		pGrassSRV->SetMaxLifeTime(0.5f);
+		pGrassSRV->SetMinLifeTime(0.5f);
+		pGrassSRV->SetMaxCount(512);
+		pGrassSRV->SetRange(Vector3(48.f, 48.f, 0.f));
 		pGrassSRV->SetAngle(DirectX::XM_2PI * 2.f);
-		pGrassSRV->SetAccel(Vector3(-30.f, -0.f, 0.f));
+		pGrassSRV->SetAccel(Vector3(-256.f, -0.f, 0.f));
 	}
 
 	SAFE_RELEASE(pGrassSRV);
@@ -1239,16 +1228,16 @@ void CMainGameMode::LoadParticle()
 	{
 		pTileDustSRV->SetStartColor(Vector4(132.f / 255.f, 128.f / 255.f, 127.f / 255.f, 1.f));
 		pTileDustSRV->SetEndColor(Vector4(132.f / 255.f, 128.f / 255.f, 127.f / 255.f, 0.f));
-		pTileDustSRV->SetEndScale(Vector3(16.f, 16.f, 0.f));
+		pTileDustSRV->SetEndScale(Vector3(0.f, 0.f, 0.f));
 		pTileDustSRV->SetStartScale(Vector3(16.f, 16.f, 0.f));
 		pTileDustSRV->SetMaxSpeed(12.f);
-		pTileDustSRV->SetMinSpeed(4.f);
+		pTileDustSRV->SetMinSpeed(12.f);
 		pTileDustSRV->SetMoveDir(Vector3(0.f, 1.f, 0.f));
 		pTileDustSRV->SetMove(true);
-		pTileDustSRV->SetMaxLifeTime(2.f);
-		pTileDustSRV->SetMinLifeTime(2.f);
+		pTileDustSRV->SetMaxLifeTime(0.5f);
+		pTileDustSRV->SetMinLifeTime(0.5f);
 		pTileDustSRV->SetMaxCount(64);
-		pTileDustSRV->SetRange(Vector3(20.f, 20.f, 0.f));
+		pTileDustSRV->SetRange(Vector3(48.f, 48.f, 0.f));
 		pTileDustSRV->SetAnim(3, 0.1f);
 	}
 
@@ -1276,6 +1265,33 @@ void CMainGameMode::LoadParticle()
 		pTileDustSRV->SetMaxCount(64);
 		pTileDustSRV->SetRange(Vector3(20.f, 20.f, 0.f));
 		pTileDustSRV->SetAccel(Vector3(-80.f, 0.f, 0.f));
+	}
+
+	SAFE_RELEASE(pTileDustSRV);
+
+	pTileDustParticle = GET_SINGLE(CResourceManager)->CreateParticle("BlueDust", false, 64, sizeof(PARTICLE), 0,
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY);
+
+	SAFE_RELEASE(pTileDustParticle);
+
+	pTileDustSRV = GET_SINGLE(CResourceManager)->CreateParticle("BlueDustShare", false, 1, sizeof(PARTICLESHARE), 0,
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY);
+
+	if (pTileDustSRV)
+	{
+		pTileDustSRV->SetStartColor(Vector4(28.f / 255.f, 56.f / 255.f, 69.f / 255.f, 1.f));
+		pTileDustSRV->SetEndColor(Vector4(28.f / 255.f, 56.f / 255.f, 69.f / 255.f, 0.f));
+		pTileDustSRV->SetEndScale(Vector3(0.f, 0.f, 0.f));
+		pTileDustSRV->SetStartScale(Vector3(16.f, 16.f, 0.f));
+		pTileDustSRV->SetMaxSpeed(12.f);
+		pTileDustSRV->SetMinSpeed(12.f);
+		pTileDustSRV->SetMoveDir(Vector3(0.f, 1.f, 0.f));
+		pTileDustSRV->SetMove(true);
+		pTileDustSRV->SetMaxLifeTime(0.5f);
+		pTileDustSRV->SetMinLifeTime(0.5f);
+		pTileDustSRV->SetMaxCount(64);
+		pTileDustSRV->SetRange(Vector3(48.f, 48.f, 0.f));
+		pTileDustSRV->SetAnim(3, 0.1f);
 	}
 
 	SAFE_RELEASE(pTileDustSRV);
@@ -1354,6 +1370,33 @@ void CMainGameMode::LoadParticle()
 	}
 
 	SAFE_RELEASE(pBloodSRV);
+
+	CParticleSystem* pArrowFire = GET_SINGLE(CResourceManager)->CreateParticle("ArrowFire", false, 128, sizeof(PARTICLE), 0,
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY);
+
+	SAFE_RELEASE(pArrowFire);
+
+	CParticleSystem* pArrowFireSRV = GET_SINGLE(CResourceManager)->CreateParticle("ArrowFireShare", false, 1, sizeof(PARTICLESHARE), 0,
+		(int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY);
+
+	if (pArrowFireSRV)
+	{
+		pArrowFireSRV->SetStartColor(Vector4(1.f, 1.f, 1.f, 1.f));
+		pArrowFireSRV->SetEndColor(Vector4(1.f, 1.f, 1.f, 0.f));
+		pArrowFireSRV->SetEndScale(Vector3(0.f, 0.f, 0.f));
+		pArrowFireSRV->SetStartScale(Vector3(16.f, 16.f, 0.f));
+		pArrowFireSRV->SetMaxSpeed(8.f);
+		pArrowFireSRV->SetMinSpeed(8.f);
+		pArrowFireSRV->SetMoveDir(Vector3(0.f, 1.f, 0.f));
+		pArrowFireSRV->SetMove(true);
+		pArrowFireSRV->SetMaxLifeTime(1.f);
+		pArrowFireSRV->SetMinLifeTime(1.f);
+		pArrowFireSRV->SetMaxCount(128);
+		pArrowFireSRV->SetRange(Vector3(1.f, 1.f, 0.f));
+		pArrowFireSRV->SetAnim(4, 0.1f);
+	}
+
+	SAFE_RELEASE(pArrowFireSRV);
 }
 
 void CMainGameMode::StartScene(float)
@@ -1481,7 +1524,12 @@ bool CMainGameMode::LoadSequance(const char* pFileName, const std::string& strPa
 
 			float fMaxTime = (float)atof(pTime);
 
-			float fRate = (float)atof(pContext);
+			float fRate = 0.f;
+
+			if (pContext)
+			{
+				fRate = (float)atof(pContext);
+			}
 
 			GET_SINGLE(CResourceManager)->CreateAni2DSeq(pResult, pTex, fMaxTime, fRate);
 		}
@@ -1603,13 +1651,12 @@ void CMainGameMode::Col(CCollider* pSrc, CCollider* pDst, float fTime)
 
 		if (!bSaved)
 		{
-			m_pEft->SetSound("SavePoint");
-			m_pEft->Play(fTime);
+			m_pEft->SetSoundAndPlay("SavePoint");
 
 			SetFadeColor(0.f, 0.f, 0.f);
 			SetFade(0.5f, 0.f, -1.f);
 
-			CEffect* pBossEffect = m_pScene->CreateObject<CEffect>("BossEffect",
+			CEffect* pBossEffect = m_pScene->CreateObject<CEffect>("BossEffect2",
 				m_pScene->FindLayer("Ground"), m_pScene->GetSceneType());
 
 			CSpriteComponent* pBossCom = pBossEffect->CreateComponent<CSpriteComponent>("BossEffect",
@@ -1634,6 +1681,49 @@ void CMainGameMode::Col(CCollider* pSrc, CCollider* pDst, float fTime)
 			SAFE_RELEASE(pBossCom);
 
 			GET_SINGLE(CBossManager)->Save();
+
+			int iSlot = GET_SINGLE(CBossManager)->GetSlot();
+
+			SLOTINFO tInfo = GET_SINGLE(CBossManager)->GetInfo(iSlot);
+
+			if ((int)tInfo.eType & (int)BOSS_TYPE::COLOSSUS)
+			{
+				CEffect* pBossEffect = (CEffect*)m_pScene->FindLayer("Ground")->FindObj("BossEffect");
+
+				CSceneComponent* pCom = pBossEffect->FindSceneComponent("ColEffect");
+
+				pCom->Enable(true);
+
+				SAFE_RELEASE(pCom);
+
+				SAFE_RELEASE(pBossEffect);
+			}
+
+			if ((int)tInfo.eType & (int)BOSS_TYPE::EYECUBE)
+			{
+				CEffect* pBossEffect = (CEffect*)m_pScene->FindLayer("Ground")->FindObj("BossEffect");
+
+				CSceneComponent* pCom = pBossEffect->FindSceneComponent("EyeEffect");
+
+				pCom->Enable(true);
+
+				SAFE_RELEASE(pCom);
+
+				SAFE_RELEASE(pBossEffect);
+			}
+
+			if ((int)tInfo.eType & (int)BOSS_TYPE::BRAINFREEZE)
+			{
+				CEffect* pBossEffect = (CEffect*)m_pScene->FindLayer("Ground")->FindObj("BossEffect");
+
+				CSceneComponent* pCom = pBossEffect->FindSceneComponent("BrainEffect");
+
+				pCom->Enable(true);
+
+				SAFE_RELEASE(pCom);
+
+				SAFE_RELEASE(pBossEffect);
+			}
 		}
 	}
 }

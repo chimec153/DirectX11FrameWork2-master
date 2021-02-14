@@ -5,6 +5,7 @@ class CBrainFreeze :
     public CSoulMonster
 {
     friend class CScene;
+    friend class CBossManager;
 
 private:
     CBrainFreeze();
@@ -31,7 +32,6 @@ private:
     float                   m_fAccelTime;
     static float                   m_fAccelTimeMax;
     bool                    m_bAccel;
-    class CUIFont*          m_pDir;
     DIR_8                   m_eNextDir;
     int                     m_iRot;
     bool                    m_bFly;
@@ -46,13 +46,14 @@ private:
     float                   m_fMeltTime;
     static float                   m_fMeltTimeMax;
     bool                    m_bBrain;
+#ifdef _DEBUG
+    class CUIFont* m_pDir;
     class CUIFont* m_pFly;
+#endif
     bool        m_bLight;
     float       m_fLightTime;
     static float       m_fLightTimeMax;
     bool        m_bLightOut;
-    class CParticle* m_pIce;
-    class CParticle* m_pSnow;
     class CSound* m_pBGM;
     class CSound* m_pEft;
 public:
@@ -96,5 +97,8 @@ public:
 public:
     void NextBrain(float, float);
     void Cheat(float, float);
+
+public:
+    void SpawnWindow();
 };
 

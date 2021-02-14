@@ -26,6 +26,7 @@ private:
 	float			m_fFrameTime;
 	float			m_fMaxTime;
 	int				m_iFrame;
+	class CTileMap* m_pMap;
 
 public:
 	const Vector2 GetTexIdx()	const;
@@ -33,6 +34,7 @@ public:
 	const Matrix& GetWV()	const;
 	const Vector2 GetTextureSize()	const;
 	void SetAnim(const std::vector<Vector2>& iStart, float vecFrame);
+	class CTileMap* GetMap()	const;
 		
 public:
 	virtual bool Init();

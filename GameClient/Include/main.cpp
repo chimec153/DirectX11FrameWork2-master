@@ -9,6 +9,7 @@
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
+#include "Client/SocketManager.h"
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -21,16 +22,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		return 0;
 	}
 
-	FILE* fp;
-
-	AllocConsole();
-	freopen_s(&fp, "CONIN$", "r", stdin);
-	freopen_s(&fp, "CONOUT$", "w", stdout);
-	freopen_s(&fp, "CONOUT$", "w", stderr);
+	if (!GET_SINGLE(CSocketManager)->Init())
+	{
+		DESTROY_SINGLE(CEngine);
+		DESTROY_SINGLE(CSocketManager);
+		return 0;
+	}
 
 	if (!GET_SINGLE(CClient)->GlobalSettings())
 	{
 		DESTROY_SINGLE(CEngine);
+		DESTROY_SINGLE(CSocketManager);
+		DESTROY_SINGLE(CClient);
 		return 0;
 	}
 
@@ -43,6 +46,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	DESTROY_SINGLE(CEngine);
 
 	DESTROY_SINGLE(CClient);
+
+	DESTROY_SINGLE(CSocketManager);
 
 	return iRetVal;
 }

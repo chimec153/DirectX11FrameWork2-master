@@ -101,7 +101,9 @@ CColossus::CColossus(const CColossus& obj)	:
 	pRHRC->SetCallBack<CColossus>(COLLISION_STATE::END, this, &CColossus::ColLast);
 
 	SAFE_RELEASE(pRHRC);
+#ifdef _DEBUG
 	m_pInput->SetActionFunc<CColossus>("Z", KEY_TYPE::KT_DOWN, this, &CColossus::Cheat);
+#endif
 }
 
 CColossus::~CColossus()
@@ -124,6 +126,9 @@ bool CColossus::Init()
 	if(!CSoulMonster::Init())
 		return false;
 
+#ifdef _DEBUG
+	m_pInput->SetActionFunc<CColossus>("Z", KEY_TYPE::KT_DOWN, this, &CColossus::Cheat);
+#endif
 
 	CLayer* pFore = m_pScene->FindLayer("Fore");
 
@@ -485,7 +490,6 @@ void CColossus::Update(float fTime)
 			m_pHead->SetDefaultSeq("Idle");
 
 			m_bSleep = false;
-
 		}
 
 		else
@@ -613,6 +617,7 @@ void CColossus::Update(float fTime)
 
 				if (m_bLeft)
 				{
+					m_pRightHand->ChangeSequence("Defence");
 					m_pLeftHand->AddWorldPos(0.f, m_fMoveSpeed * fTime, 0.f);
 
 					m_fDownDist -= fTime * m_fMoveSpeed;
@@ -644,6 +649,7 @@ void CColossus::Update(float fTime)
 
 				else
 				{
+					m_pLeftHand->ChangeSequence("Defence");
 					m_pRightHand->AddWorldPos(0.f, m_fMoveSpeed * fTime, 0.f);
 
 					m_fDownDist -= fTime * m_fMoveSpeed;
@@ -834,7 +840,6 @@ void CColossus::Update(float fTime)
 
 					if (m_bLeft)
 					{
-						m_pRightHand->ChangeSequence("Defence");
 						m_pLeftHandShadow->SetRelativePos(0.f, 0.f, 0.f);
 						m_pLeftHandShadow->SetRelativeScale(48.f, 32.f, 0.f);
 						m_pParticleLeft->SetSpawnCount(16);
@@ -854,7 +859,6 @@ void CColossus::Update(float fTime)
 
 					else
 					{
-						m_pLeftHand->ChangeSequence("Defence");
 						m_pRightHandShadow->SetRelativePos(0.f, 0.f, 0.f);
 						m_pRightHandShadow->SetRelativeScale(48.f, 32.f, 0.f);
 						m_pParticleRight->SetSpawnCount(16);
@@ -1072,6 +1076,30 @@ void CColossus::Save(FILE* pFile)
 void CColossus::Load(FILE* pFile)
 {
 	CSoulMonster::Load(pFile);
+
+	m_pHead = static_cast<CSpriteComponent*>(FindSceneComponent("Head"));
+	m_pBody = static_cast<CSpriteComponent*>(FindSceneComponent("Body"));
+	m_pLeftHand = static_cast<CSpriteComponent*>(FindSceneComponent("LeftHand"));
+	m_pRightHand = static_cast<CSpriteComponent*>(FindSceneComponent("RightHand"));
+	m_pLight = static_cast<CSpriteComponent*>(FindSceneComponent("Light"));
+	m_pLeftHandShadow = static_cast<CSpriteComponent*>(FindSceneComponent("LeftHandShadow"));
+	m_pRightHandShadow = static_cast<CSpriteComponent*>(FindSceneComponent("RightHandShadow"));
+	m_pParticleLeft = (CParticle*)FindSceneComponent("DustLeft");
+	m_pParticleRight = (CParticle*)FindSceneComponent("DustRight");
+	m_pBGM = (CSound*)FindSceneComponent("BGM");
+	m_pBGM2 = (CSound*)FindSceneComponent("BGM2");
+	CScene* pScene = GET_SINGLE(CSceneManager)->GetScene();
+	m_pLeftHandShadow->SetLayer(pScene->FindLayer("Ground"));
+	m_pRightHandShadow->SetLayer(pScene->FindLayer("Ground"));
+	m_pLeftHand->SetLayer(pScene->FindLayer("BackDefault"));
+	m_pRightHand->SetLayer(pScene->FindLayer("BackDefault"));
+	CMesh2DComponent* pStencil = (CMesh2DComponent*)FindSceneComponent("Stencil");
+
+	pStencil->SetLayer(pScene->FindLayer("Back"));
+
+	SAFE_RELEASE(pStencil);
+	m_pBody->SetLayer(pScene->FindLayer("Temp"));
+	m_pHead->SetLayer(pScene->FindLayer("Ground"));
 }
 
 void CColossus::ColStart(CCollider* pSrc, CCollider* pDst, float fTime)
@@ -1085,29 +1113,32 @@ void CColossus::ColStart(CCollider* pSrc, CCollider* pDst, float fTime)
 
 		if (m_bSleep)
 		{
-			m_bRising = true;
+			if (((CBullet*)pDst->GetObj())->GetSpeed())
+			{
+				m_bRising = true;
 
-			CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
+				CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
 
-			pCam->SetFocus(this);
+				pCam->SetFocus(this);
 
-			SAFE_RELEASE(pCam);
+				SAFE_RELEASE(pCam);
 
-			CScene* pScene = GET_SINGLE(CSceneManager)->GetScene();
+				CScene* pScene = GET_SINGLE(CSceneManager)->GetScene();
 
-			((CTileMode*)m_pScene->GetGameMode())->Lock(true);
+				((CTileMode*)m_pScene->GetGameMode())->Lock(true);
 
-			CSpriteComponent* pRightShoulder = (CSpriteComponent*)FindSceneComponent("RightShoulder");
-			CSpriteComponent* pLeftShoulder = (CSpriteComponent*)FindSceneComponent("LeftShoulder");
+				CSpriteComponent* pRightShoulder = (CSpriteComponent*)FindSceneComponent("RightShoulder");
+				CSpriteComponent* pLeftShoulder = (CSpriteComponent*)FindSceneComponent("LeftShoulder");
 
-			pRightShoulder->SetRelativePos(40.f, -24.f, 0.f);
-			pLeftShoulder->SetRelativePos(-40.f, -24.f, 0.f);
+				pRightShoulder->SetRelativePos(40.f, -24.f, 0.f);
+				pLeftShoulder->SetRelativePos(-40.f, -24.f, 0.f);
 
-			SAFE_RELEASE(pRightShoulder);
-			SAFE_RELEASE(pLeftShoulder);
+				SAFE_RELEASE(pRightShoulder);
+				SAFE_RELEASE(pLeftShoulder);
 
-			m_pBGM->SetSoundAndPlay("Rise");
-			m_pBGM2->SetSoundAndPlay("Colossus");
+				m_pBGM->SetSoundAndPlay("Rise");
+				m_pBGM2->SetSoundAndPlay("Colossus");
+			}
 		}
 
 		else if (eStat == State::ATTACK)

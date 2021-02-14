@@ -39,12 +39,13 @@ bool CFireButton::Init()
     if (!CObj::Init())
         return false;
 
-    m_pButton = CreateComponent<CSpriteComponent>("Button", m_pScene->FindLayer("BackDefault"));
+    m_pButton = CreateComponent<CSpriteComponent>("Button", m_pScene->FindLayer("Temp"));
 
     m_pButton->CreateSprite("Idle", "FireButton", LOOP_OPTION::LOOP);
     m_pButton->CreateSprite("Push", "FireButtonPush", LOOP_OPTION::LOOP);
     m_pButton->SetWorldScale(32.f, 32.f, 0.f);
     m_pButton->SetPivot(0.5f, 0.5f, 0.f);
+    m_pButton->AddRenderState("DepthNoWrite");
 
     SetRootComponent(m_pButton);
 

@@ -24,7 +24,7 @@ cbuffer Material	:	register(b1)
 	int		g_iDif;
 	int		g_iNrm;
 	int		g_iSpe;
-	int		g_iGray;
+	float	g_iGray;
 };
 
 cbuffer Sprite	:	register(b2)

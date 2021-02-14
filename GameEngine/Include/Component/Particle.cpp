@@ -8,10 +8,11 @@
 #include "../Resource/ParticleSystem.h"
 #include "../Resource/Texture.h"
 #include "../Resource/Material.h"
+#include "Renderer.h"
+#include "Transform.h"
 
 CParticle::CParticle()	:
-	m_pShader(nullptr)
-	, m_pUpdateShader(nullptr)
+	m_pUpdateShader(nullptr)
 	, m_fSpawnTime(0.f)
 	, m_fSpawnTimeLimit(0.2f)
 	, m_tParticle()
@@ -35,7 +36,6 @@ CParticle::CParticle()	:
 
 CParticle::CParticle(const CParticle& com)	:
 	CSceneComponent(com)
-	, m_pShader(com.m_pShader)
 	, m_pUpdateShader(com.m_pUpdateShader)
 	, m_fSpawnTime(com.m_fSpawnTime)
 	, m_fSpawnTimeLimit(com.m_fSpawnTimeLimit)
@@ -53,10 +53,6 @@ CParticle::CParticle(const CParticle& com)	:
 	, m_bStop(com.m_bStop)
 	, m_iSpawnCount(com.m_iSpawnCount)
 {
-	if (m_pShader)
-	{
-		m_pShader->AddRef();
-	}
 
 	if (m_pUpdateShader)
 	{
@@ -80,7 +76,6 @@ CParticle::CParticle(const CParticle& com)	:
 
 CParticle::~CParticle()
 {
-	SAFE_RELEASE(m_pShader);
 	SAFE_RELEASE(m_pUpdateShader);
 	SAFE_RELEASE_VECLIST(m_vecParticle);
 	SAFE_RELEASE(m_pNoiseTex);
@@ -175,13 +170,9 @@ bool CParticle::Init()
 
 	m_pUpdateShader = (CComputeShader*)GET_SINGLE(CShaderManager)->FindShader("ComputeShader");
 
-	m_pMesh = GET_SINGLE(CResourceManager)->FindMesh("Particle");
-
-	CMaterial* pMtrl = GET_SINGLE(CResourceManager)->FindMaterial("Particle");
-
-	m_pMaterial = pMtrl->Clone();
-
-	SAFE_RELEASE(pMtrl);
+	SetMesh("Particle");
+	SetMaterial("Particle");
+	SetShader("ParticleShader");
 
 	m_pNoiseTex = GET_SINGLE(CResourceManager)->GetNoiseTex();
 
@@ -283,9 +274,29 @@ void CParticle::Render(float fTime)
 		m_vecParticle[i]->SetShader((int)i + 30, (int)SHADER_CBUFFER_TYPE::CBUFFER_GEOMETRY);
 	}
 
-	CSceneComponent::Render(fTime);
+	m_pTransform->SetTransform();
 
-	m_pMesh->RenderParticle(m_tCBuffer.iMaxCount );
+	CRenderer*	pRenderer = GetRenderer();
+
+	CMaterial* pMtrl = pRenderer->GetMaterial();
+
+	pMtrl->SetMaterial();
+
+	pMtrl->Release();
+
+	CShader* pShader = pRenderer->GetShader();
+
+	pShader->SetShader();
+
+	pShader->Release();
+
+	CMesh* pMesh = pRenderer->GetMesh();
+
+	pMesh->RenderParticle(m_tCBuffer.iMaxCount);
+
+	pMesh->Release();
+
+	pRenderer->Release();
 
 	for (size_t i = 0; i < iSz; ++i)
 	{
@@ -306,11 +317,79 @@ CParticle* CParticle::Clone()
 void CParticle::Save(FILE* pFile)
 {
 	CSceneComponent::Save(pFile);
+
+	std::string strTag = m_pUpdateShader->GetName();
+	int iLength = (int)strTag.length();
+	fwrite(&iLength, 4, 1, pFile);
+	fwrite(strTag.c_str(), 1, iLength, pFile);
+
+	int iSize = (int)m_vecParticle.size();
+	fwrite(&iSize, 4, 1, pFile);
+	for (int i = 0; i < iSize; ++i)
+	{
+		std::string strTag = m_vecParticle[i]->GetName();
+		int iLength = (int)strTag.length();
+		fwrite(&iLength, 4, 1, pFile);
+		fwrite(strTag.c_str(), 1, iLength, pFile);
+	}
+	fwrite(&m_fSpawnTime, 4, 1, pFile);
+	fwrite(&m_fSpawnTimeLimit, 4, 1, pFile);
+	fwrite(&m_tParticle, sizeof(PARTICLE), 1, pFile);
+	fwrite(&m_tParticleShare, sizeof(PARTICLESHARE), 1, pFile);
+	fwrite(&m_tCBuffer, sizeof(PARTICLECBUFFER), 1, pFile);
+
+	fwrite(&m_tSpriteCBuffer, sizeof(SpriteCBuffer), 1, pFile);
+	fwrite(&m_iFrame, 4, 1, pFile);
+	fwrite(&m_iMaxFrame, 4, 1, pFile);
+	fwrite(&m_fFrameTime, 4, 1, pFile);
+	fwrite(&m_fFrameTimeMax, 4, 1, pFile);
+	fwrite(&m_vStart, sizeof(Vector2), 1, pFile);
+	fwrite(&m_vEnd, sizeof(Vector2), 1, pFile);
+	fwrite(&m_bStop, 1, 1, pFile);
+	fwrite(&m_iSpawnCount, 4, 1, pFile);
 }
 
 void CParticle::Load(FILE* pFile)
 {
 	CSceneComponent::Load(pFile);
+
+	char strTag[256] = {};
+	int iLength = 0;
+	fread(&iLength, 4, 1, pFile);
+	fread(strTag, 1, iLength, pFile);
+
+	SAFE_RELEASE(m_pUpdateShader);
+	m_pUpdateShader = (CComputeShader*)GET_SINGLE(CShaderManager)->FindShader(strTag);
+
+	int iSize = 0;
+	fread(&iSize, 4, 1, pFile);
+	for (int i = 0; i < iSize; ++i)
+	{
+		char strTag[256] = {};
+		int iLength = 0;
+		fread(&iLength, 4, 1, pFile);
+		fread(strTag, 1, iLength, pFile);
+		AddParticle(strTag);
+	}
+
+	fread(&m_fSpawnTime, 4, 1, pFile);
+	fread(&m_fSpawnTimeLimit, 4, 1, pFile);
+	fread(&m_tParticle, sizeof(PARTICLE), 1, pFile);
+	fread(&m_tParticleShare, sizeof(PARTICLESHARE), 1, pFile);
+	fread(&m_tCBuffer, sizeof(PARTICLECBUFFER), 1, pFile);
+
+	fread(&m_tSpriteCBuffer, sizeof(SpriteCBuffer), 1, pFile);
+	fread(&m_iFrame, 4, 1, pFile);
+	fread(&m_iMaxFrame, 4, 1, pFile);
+	fread(&m_fFrameTime, 4, 1, pFile);
+	fread(&m_fFrameTimeMax, 4, 1, pFile);
+	fread(&m_vStart, sizeof(Vector2), 1, pFile);
+	fread(&m_vEnd, sizeof(Vector2), 1, pFile);
+	fread(&m_bStop, 1, 1, pFile);
+	fread(&m_iSpawnCount, 4, 1, pFile);
+
+	SAFE_RELEASE(m_pNoiseTex);
+	m_pNoiseTex = GET_SINGLE(CResourceManager)->GetNoiseTex();
 }
 
 void CParticle::SpawnWindow()

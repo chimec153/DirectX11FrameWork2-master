@@ -23,7 +23,11 @@ _tagVector4::_tagVector4(const _tagVector4& v)	:
 {
 }
 
-_tagVector4::_tagVector4(const DirectX::XMVECTOR& v)
+_tagVector4::_tagVector4(const DirectX::XMVECTOR& v)	:
+	x(0.f)
+	, y(0.f)
+	, z(0.f)
+	, w(0.f)
 {
 	DirectX::XMStoreFloat4((DirectX::XMFLOAT4*)this, v);
 }

@@ -31,6 +31,8 @@ public:
 		m_fAlphaSpeed = fSpeed;
 	}
 
+	void SetScaleCallBack(float);
+
 public:
 	virtual bool Init();
 	virtual void Start();

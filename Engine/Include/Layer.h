@@ -41,6 +41,7 @@ public:
 	void SetFontPos(const Vector3& vPos);
 	void AddTileInstState(const std::string& strKey);
 	class CScene* GetScene()	const;
+	void DeleteObject(const std::string& strTag);
 
 public:
 	virtual bool Init();

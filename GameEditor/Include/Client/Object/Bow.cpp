@@ -54,11 +54,16 @@ bool CBow::Init()
 	m_pMesh->CreateSprite("WalkR",	"BowWalkR", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("WalkRD", "BowWalkRD", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("WalkD",	"BowWalkD", LOOP_OPTION::LOOP);
-	m_pMesh->CreateSprite("AttackU",	"BowAttackU", LOOP_OPTION::ONCE_RETURN);
-	m_pMesh->CreateSprite("AttackRU",	"BowAttackRU", LOOP_OPTION::ONCE_RETURN);
-	m_pMesh->CreateSprite("AttackR",	"BowAttackR", LOOP_OPTION::ONCE_RETURN);
-	m_pMesh->CreateSprite("AttackRD",	"BowAttackRD", LOOP_OPTION::ONCE_RETURN);
-	m_pMesh->CreateSprite("AttackD",	"BowAttackD", LOOP_OPTION::ONCE_RETURN);
+	m_pMesh->CreateSprite("RunU",	"BowRunU", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("RunRU",	"BowRunRU", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("RunR",	"BowRunR", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("RunRD",	"BowRunRD", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("RunD",	"BowRunD", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("AttackU",	"BowAttackU", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("AttackRU",	"BowAttackRU", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("AttackR",	"BowAttackR", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("AttackRD",	"BowAttackRD", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("AttackD",	"BowAttackD", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("CallU",	"BowCallU", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("CallRU", "BowCallRU", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("CallR",	"BowCallR", LOOP_OPTION::LOOP);
@@ -79,6 +84,10 @@ bool CBow::Init()
 	m_pMesh->CreateSprite("DieR",	"BowDieR", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("DieRD",	"BowDieRD", LOOP_OPTION::LOOP);
 	m_pMesh->CreateSprite("DieD",	"BowDieD", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("Turn", "BowTurn", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("TurnIdle", "BowTurnIdle", LOOP_OPTION::LOOP);
+	m_pMesh->CreateSprite("Randing", "BowRanding", LOOP_OPTION::ONCE_RETURN);
+	m_pMesh->CreateSprite("RandingIdle", "BowRandingIdle", LOOP_OPTION::LOOP);
 
 	m_pMesh->SetPivot(0.5f, 0.5f, 0.f);
 	m_pMesh->AddRenderState("Character");

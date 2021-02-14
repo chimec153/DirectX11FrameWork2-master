@@ -15,6 +15,7 @@ class CColossus :
 {
 	friend class CScene;
 	friend class CLayer;
+	friend class CBossManager;
 
 private:
 	CColossus();

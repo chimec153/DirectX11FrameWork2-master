@@ -16,6 +16,11 @@
 #include "../BossManager.h"
 #include "Component/Sound.h"
 #include "../GameMode/BrainMode.h"
+#include "Engine.h"
+#include "Camera/CameraManager.h"
+#include "Component/Camera.h"
+#include "Effect.h"
+#include "Scene/SceneManager.h"
 
 float CBrainFreeze::m_fAttackTimeMax = 5.f;
 float CBrainFreeze::m_fAccelTimeMax = 0.5f;
@@ -42,7 +47,6 @@ CBrainFreeze::CBrainFreeze()    :
     , m_fRot(0.f)
     , m_fAccelTime(0.f)
     , m_bAccel(false)
-    , m_pDir(nullptr)
     , m_eNextDir(DIR_8::D)
     , m_iRot(0)
     , m_bFly(0)
@@ -54,12 +58,13 @@ CBrainFreeze::CBrainFreeze()    :
     , m_bMelt(false)
     , m_fMeltTime(0.f)
     , m_bBrain(false)
+#ifdef _DEBUG
+    , m_pDir(nullptr)
     , m_pFly(nullptr)
+#endif
     , m_bLight(false)
     , m_fLightTime(0.f)
     , m_bLightOut(false)
-    , m_pIce(nullptr)
-    , m_pSnow(nullptr)
     , m_pBGM(nullptr)
     , m_pEft(nullptr)
 {
@@ -85,7 +90,6 @@ CBrainFreeze::CBrainFreeze(const CBrainFreeze& obj) :
     , m_fRot(obj.m_fRot)
     , m_fAccelTime(obj.m_fAccelTime)
     , m_bAccel(obj.m_bAccel)
-    , m_pDir((CUIFont*)FindSceneComponent("Dir"))
     , m_eNextDir(obj.m_eNextDir)
     , m_iRot(obj.m_iRot)
     , m_bFly(obj.m_bFly)
@@ -97,7 +101,10 @@ CBrainFreeze::CBrainFreeze(const CBrainFreeze& obj) :
     , m_bMelt(obj.m_bMelt)
     , m_fMeltTime(obj.m_fMeltTime)
     , m_bBrain(obj.m_bBrain)
+#ifdef _DEBUG
+    , m_pDir((CUIFont*)FindSceneComponent("Dir"))
     , m_pFly((CUIFont*)FindSceneComponent("Fly"))
+#endif
     , m_bLight(obj.m_bLight)
     , m_fLightTime(obj.m_fLightTime)
     , m_bLightOut(obj.m_bLightOut)
@@ -111,7 +118,7 @@ CBrainFreeze::CBrainFreeze(const CBrainFreeze& obj) :
     m_pOC->SetCallBack<CBrainFreeze>(COLLISION_STATE::INIT, this, &CBrainFreeze::ColInit);
     m_pOC->SetCallBack<CBrainFreeze>(COLLISION_STATE::STAY, this, &CBrainFreeze::ColStay);
     m_pOC->SetCallBack<CBrainFreeze>(COLLISION_STATE::END, this, &CBrainFreeze::ColEnd);
-
+#ifdef _DEBUG
     m_pInput->SetAxisFunc("1", this, &CBrainFreeze::RotX);
     m_pInput->SetAxisFunc("2", this, &CBrainFreeze::RotY);
     m_pInput->SetAxisFunc("3", this, &CBrainFreeze::RotZ);
@@ -119,6 +126,7 @@ CBrainFreeze::CBrainFreeze(const CBrainFreeze& obj) :
     m_pInput->SetAxisFunc("5", this, &CBrainFreeze::RotY);
     m_pInput->SetAxisFunc("6", this, &CBrainFreeze::RotZ);
     m_pInput->SetActionFunc("Z", KEY_TYPE::KT_DOWN,this, &CBrainFreeze::NextBrain);
+#endif
 }
 
 CBrainFreeze::~CBrainFreeze()
@@ -136,8 +144,10 @@ CBrainFreeze::~CBrainFreeze()
     SAFE_RELEASE(m_pOC);
     SAFE_RELEASE(m_pIceShadow);
     SAFE_RELEASE(m_pRC);
+#ifdef _DEBUG
     SAFE_RELEASE(m_pDir);
     SAFE_RELEASE(m_pFly);
+#endif
     SAFE_RELEASE(m_pBGM);
     SAFE_RELEASE(m_pEft);
 }
@@ -153,9 +163,20 @@ void CBrainFreeze::SetState(State eStat)
     case State::IDLE:
         break;
     case State::ATTACK:
+    {
         m_pBGM->SetSoundAndPlay("BrainA");
+
+        CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
+
+        pCam->SetFocus(this);
+        pCam->SetMax(500.f);
+        pCam->SetMin(50.f);
+
+        SAFE_RELEASE(pCam);
+    }
         break;
     case State::STOP:
+        m_pBrain->SetShader("GrayShader");
 
         m_pBGM->SetSound("BrainB");
         m_pBGM->Stop();
@@ -165,6 +186,17 @@ void CBrainFreeze::SetState(State eStat)
         GET_SINGLE(CBossManager)->AddMonster(this);
 
         ((CBrainMode*)m_pScene->GetGameMode())->Clear();
+
+        CCamera* pCam = GET_SINGLE(CCameraManager)->GetMainCam();
+
+        pCam->SetFocus(nullptr);
+
+        SAFE_RELEASE(pCam);
+
+        m_pBrain->SetWorldScale(32.f, 24.f, 0.f);
+        m_pShadow->SetWorldScale(32.f, 16.f, 0.f);
+        m_pShadow->AddRelativePos(0.f, 16.f, 0.f);
+
         break;
     }
 }
@@ -174,7 +206,9 @@ bool CBrainFreeze::Init()
     if (!CSoulMonster::Init())
         return false;
 
+#ifdef _DEBUG
     m_pInput->SetActionFunc("Z", KEY_TYPE::KT_DOWN, this, &CBrainFreeze::NextBrain);
+#endif
 
 	m_pCube = CreateComponent<CSpriteComponent>("icecube",
 		"IMG\\BOSS\\BRAIN\\icecube.obj",DATA_PATH, m_pScene->FindLayer("Fore"));
@@ -187,9 +221,11 @@ bool CBrainFreeze::Init()
     m_pCube->AddRenderState("AlphaBlend");
     m_pCube->AddQuaternionRotNorm(Vector4(1.f, 0.f, 0.f, 0.f), -45.f);
 
+    m_vNextQuat = m_vPrevQuat = m_pCube->GetTransform()->GetQuarternion();
+
 	SetRootComponent(m_pCube);
 
-    m_pBrain = CreateComponent<CSpriteComponent>("brain", m_pScene->FindLayer("BackDefault"));
+    m_pBrain = CreateComponent<CSpriteComponent>("brain", m_pScene->FindLayer("Ground"));
 
     m_pCube->AddChild(m_pBrain);
 
@@ -237,7 +273,7 @@ bool CBrainFreeze::Init()
 
     SAFE_RELEASE(pLightMtrl);
 
-    m_pShadow = CreateComponent<CSpriteComponent>("Shadow", m_pScene->FindLayer("Ground"));
+    m_pShadow = CreateComponent<CSpriteComponent>("Shadow", m_pScene->FindLayer("Temp"));
 
     m_pShadow->SetWorldScale(64.f, 32.f, 0.f);
     m_pShadow->SetInheritScale(false);
@@ -296,7 +332,7 @@ bool CBrainFreeze::Init()
     m_pRC->SetCallBack<CBrainFreeze>(COLLISION_STATE::END, this, &CBrainFreeze::ColEnd);
 
     m_pBrain->AddChild(m_pRC);
-
+#ifdef _DEBUG
     m_pDir = CreateComponent<CUIFont>("Dir", m_pScene->FindLayer("UI"));
 
     m_pCube->AddChild(m_pDir);
@@ -313,6 +349,7 @@ bool CBrainFreeze::Init()
     m_pFly->SetInheritPos(false);
 
     m_pCube->AddChild(m_pFly);
+#endif
 
     CParticle* pIce = CreateComponent<CParticle>("Ice", m_pScene->FindLayer("Fore"));
 
@@ -508,22 +545,21 @@ void CBrainFreeze::Update(float fTime)
 
                     ((CTileMode*)m_pScene->GetGameMode())->SetFade(0.5f, 0.f, -0.5f);
 
-                    m_pEft->SetSound("TelekinesisJump");
-                    m_pEft->SetVol(1.f);
-                    m_pEft->Play(fTime);
+                    m_pEft->SetSoundAndPlay("TelekinesisJump");
                 }
 
                 else
                 {
                     m_bAccel = true;
-
-                    m_vAccel = vDir * 800.f;
+#ifdef _DEBUG
+                    m_vAccel = vDir * 1200.f;
+#else
+                    m_vAccel = vDir * 1600.f;
+#endif
 
                     m_vAccel.z = 0.f;
 
-                    m_pEft->SetSound("TelekinesisSlide");
-                    m_pEft->SetVol(1.f);
-                    m_pEft->Play(fTime);
+                    m_pEft->SetSoundAndPlay("TelekinesisSlide");
                 }
             }
 
@@ -545,12 +581,13 @@ void CBrainFreeze::Update(float fTime)
                 }
 
                 m_eDir = (DIR_8)((int)m_eNextDir - iRate);
-
+#ifdef _DEBUG
                 TCHAR strDir[32] = {};
 
                 swprintf_s(strDir, L"%d", m_eDir);
 
                 m_pDir->SetText(strDir);
+#endif
             }
 
             else
@@ -620,12 +657,13 @@ void CBrainFreeze::Update(float fTime)
             {
                 m_eDir = DIR_8((-(int)m_eDir + 12) % 8);
             }
-
+#ifdef _DEBUG
             TCHAR strDir[32] = {};
 
             swprintf_s(strDir, L"%d", m_eDir);
 
             m_pDir->SetText(strDir);
+#endif
 
             m_pRC->Enable(m_fFlyDist < 16.f);
         }
@@ -647,7 +685,10 @@ void CBrainFreeze::Update(float fTime)
 
     if (m_bFly)
     {
+
+#ifdef _DEBUG
         m_pFly->SetText(L"Fly");
+#endif
 
         m_fFlySpeed += m_fFlyAccel * fTime;
 
@@ -684,9 +725,33 @@ void CBrainFreeze::Update(float fTime)
                     m_pOC->Enable(true);
                 }
 
-                m_pRC->Enable(true);
+                else
+                {
+                    m_pRC->Enable(true);
 
-                m_vSpeed /= 2.f;
+                    for (int i = 0; i < 4; ++i)
+                    {
+                        char strName[32] = {};
+
+                        sprintf_s(strName, "Mucus%d", rand() % 4 + 1);
+
+                        CObj* pMucus = m_pScene->CreateCloneObj(strName, strName, m_pLayer, m_pScene->GetSceneType());
+
+                        pMucus->SetWorldPos(GetWorldPos() +
+                            Vector3((rand() % 6400 - 3200) / 100.f, (rand() % 6400 - 3200) / 100.f, 0.f));
+
+                        CSpriteComponent* pCom = pMucus->FindComByType<CSpriteComponent>();
+
+                        pCom->AddCallBack("idle", "Scale", (CEffect*)pMucus, &CEffect::SetScaleCallBack);
+                        pCom->AddCallBack("idle", "Destroy", (CEffect*)pMucus, &CEffect::Destroy);
+
+                        SAFE_RELEASE(pCom);
+
+                        SAFE_RELEASE(pMucus);
+                    }
+                }
+
+                //m_vSpeed /= 2.f;
 
                 ((CTileMode*)m_pScene->GetGameMode())->ShakeCam(300.f, 10.f);
 
@@ -728,7 +793,10 @@ void CBrainFreeze::Update(float fTime)
 
     else
     {
+
+#ifdef _DEBUG
         m_pFly->SetText(L"NotFly");
+#endif
     }
 
     if (m_bMelt)
@@ -740,7 +808,20 @@ void CBrainFreeze::Update(float fTime)
             m_bBrain = true;
             m_bMelt = false;
 
+            CParticle* pIce = (CParticle*)FindSceneComponent("Ice");
+
+            pIce->Enable(false);
+
+            SAFE_RELEASE(pIce);
+
+            CParticle* pSnow = (CParticle*)FindSceneComponent("Snow");
+                        
+            pSnow->Enable(false);
+
+            SAFE_RELEASE(pSnow);
+
             m_pCube->SetWorldScale(0.f, 0.f, 0.f);
+
             m_pIceShadow->Enable(false);
             m_pShadow->Enable(true);
 
@@ -814,15 +895,15 @@ void CBrainFreeze::Update(float fTime)
     switch (m_eDir)
     {
     case DIR_8::U:
-        if (!m_bFly)
-        {
+       /* if (!m_bFly)
+        {*/
             m_pBrain->ChangeSequence("U");
-        }
+       /* }
 
         else
         {
             m_pBrain->ChangeSequence("FlyU");
-        }
+        }*/
 
         m_pLight->ChangeSequence("U");
         break;
@@ -831,15 +912,7 @@ void CBrainFreeze::Update(float fTime)
         m_pLight->ChangeSequence("RU");
         break;
     case DIR_8::R:
-        if (!m_bFly)
-        {
             m_pBrain->ChangeSequence("R");
-        }
-
-        else
-        {
-            m_pBrain->ChangeSequence("FlyR");
-        }
         m_pLight->ChangeSequence("R");
         break;
     case DIR_8::RD:
@@ -847,15 +920,15 @@ void CBrainFreeze::Update(float fTime)
         m_pLight->ChangeSequence("RD");
         break;
     case DIR_8::D:
-        if (!m_bFly)
-        {
+        /*if (!m_bFly)
+        {*/
             m_pBrain->ChangeSequence("D");
-        }
+        /*}
 
         else
         {
             m_pBrain->ChangeSequence("FlyD");
-        }
+        }*/
         m_pLight->ChangeSequence("D");
         break;
     case DIR_8::LD:
@@ -863,15 +936,15 @@ void CBrainFreeze::Update(float fTime)
         m_pLight->ChangeSequence("LD");
         break;
     case DIR_8::L:
-        if (!m_bFly)
-        {
+        /*if (!m_bFly)
+        {*/
             m_pBrain->ChangeSequence("L");
-        }
+        /*}
 
         else
         {
             m_pBrain->ChangeSequence("FlyL");
-        }
+        }*/
         m_pLight->ChangeSequence("L");
         break;
     case DIR_8::LU:
@@ -889,24 +962,20 @@ void CBrainFreeze::PostUpdate(float fTime)
 
     float fSpeed = m_vSpeed.Length();
 
-    if (fSpeed >= 250.f && fPrevSpeed < 250.f)
+    if (fSpeed >= 150.f && fPrevSpeed < 150.f)
     {
         m_pBGM->SetSound("NormalMovementLoop");
         m_pBGM->Stop();
 
-        m_pBGM->SetSound("FastMovementLoop");
-        m_pBGM->SetVol(1.f);
-        m_pBGM->Play(fTime);
+        m_pBGM->SetSoundAndPlay("FastMovementLoop");
     }
 
-    else if (fSpeed < 250.f && fPrevSpeed >= 250.f)
+    else if (fSpeed < 150.f && fPrevSpeed >= 150.f)
     {
         m_pBGM->SetSound("FastMovementLoop");
         m_pBGM->Stop();
 
-        m_pBGM->SetSound("NormalMovementLoop");
-        m_pBGM->SetVol(1.f);
-        m_pBGM->Play(fTime);
+        m_pBGM->SetSoundAndPlay("NormalMovementLoop");
     }
 
     fPrevSpeed = fSpeed;
@@ -928,12 +997,12 @@ void CBrainFreeze::Collision(float fTime)
         {
             if (vPos.x < 296.f)
             {
-                m_pEft->SetSound("HeavyImpact4");
+                m_pEft->SetSoundAndPlay("HeavyImpact4");
             }
 
             else
             {
-                m_pEft->SetSound("HeavyImpact2");
+                m_pEft->SetSoundAndPlay("HeavyImpact2");
             }
         }
 
@@ -941,19 +1010,16 @@ void CBrainFreeze::Collision(float fTime)
         {
             if (vPos.x < 296.f)
             {
-                m_pEft->SetSound("SoftImpact4");
+                m_pEft->SetSoundAndPlay("SoftImpact4");
             }
 
             else
             {
-                m_pEft->SetSound("SoftImpact2");
+                m_pEft->SetSoundAndPlay("SoftImpact2");
             }
         }
 
-        m_pEft->SetVol(1.f);
-        m_pEft->Play(fTime);
-
-        m_vSpeed /= 2.f;
+        m_vSpeed.x /= 3.f;
 
         m_vSpeed.x *= -1.f;
 
@@ -964,34 +1030,23 @@ void CBrainFreeze::Collision(float fTime)
             m_eDir == DIR_8::LU ||
             m_eDir == DIR_8::RU)
         {
+            m_eDir = (DIR_8)(((int)m_eDir + 1) % (int)DIR_8::END);
 
-            m_eDir = (DIR_8)((int)m_eDir + 1);
-
+#ifdef _DEBUG
             TCHAR strDir[32] = {};
 
             swprintf_s(strDir, L"%d", m_eDir);
 
             m_pDir->SetText(strDir);
-
+#endif
             m_vPrevQuat = m_vNextQuat;
 
             m_vNextQuat = XMQuaternionMultiply(m_vPrevQuat.Convert(),
                 XMQuaternionRotationAxis(Vector4(0.f, 1.f, -1.f, 0.f).Convert(), DegToRad(45.f)));
 
             Slerp(m_vPrevQuat, m_vNextQuat, 1.f);
-        }
 
-        else
-        {
-            /* if (m_vSpeed.y == 0.f)
-             {
-                 m_vSpeed.x = -m_vSpeed.x / 4.f;
-             }
-
-             else
-             {
-                 m_vSpeed.x = 0.f;
-             }*/
+            m_eNextDir = m_eDir;
         }
     }
 
@@ -1005,7 +1060,7 @@ void CBrainFreeze::Collision(float fTime)
 
             float fSpeed = m_vSpeed.Length();
 
-            if (fSpeed >= 250.f)
+            if (fSpeed >= 150.f)
             {
                 if (vPos.y < 312.f)
                 {
@@ -1034,7 +1089,7 @@ void CBrainFreeze::Collision(float fTime)
             m_pEft->SetVol(1.f);
             m_pEft->Play(fTime);
 
-            m_vSpeed /= 2.f;
+            m_vSpeed.y /= 3.f;
 
             m_vSpeed.y *= -1.f;
 
@@ -1043,13 +1098,15 @@ void CBrainFreeze::Collision(float fTime)
                 m_eDir == DIR_8::LU ||
                 m_eDir == DIR_8::RU)
             {
-                m_eDir = (DIR_8)((int)m_eDir + 1);
+                m_eDir = (DIR_8)(((int)m_eDir + 1) % (int)DIR_8::END);
 
+#ifdef _DEBUG
                 TCHAR strDir[32] = {};
 
                 swprintf_s(strDir, L"%d", m_eDir);
 
                 m_pDir->SetText(strDir);
+#endif
 
                 m_vPrevQuat = m_vNextQuat;
 
@@ -1057,19 +1114,8 @@ void CBrainFreeze::Collision(float fTime)
                     XMQuaternionRotationAxis(Vector4(0.f, 1.f, -1.f, 0.f).Convert(), DegToRad(45.f)));
 
                 Slerp(m_vPrevQuat, m_vNextQuat, 1.f);
-            }
 
-            else
-            {
-                /*if (m_vSpeed.x == 0.f)
-                {
-                    m_vSpeed.y = -m_vSpeed.y / 4.f;
-                }
-
-                else
-                {
-                    m_vSpeed.y = 0.f;
-                }*/
+                m_eNextDir = m_eDir;
             }
         }
     }
@@ -1081,6 +1127,11 @@ void CBrainFreeze::PreRender(float fTime)
 
     m_pOC->SetWorldRotX(0.f);
     m_pOC->SetWorldRotY(0.f);
+
+    if (GET_SINGLE(CEngine)->IsImgui())
+    {
+        SpawnWindow();
+    }
 }
 
 void CBrainFreeze::Render(float fTime)
@@ -1106,6 +1157,31 @@ void CBrainFreeze::Save(FILE* pFile)
 void CBrainFreeze::Load(FILE* pFile)
 {
     CSoulMonster::Load(pFile);
+
+    m_pCube = (CSpriteComponent*)FindSceneComponent("icecube");
+    m_pBrain = (CSpriteComponent*)FindSceneComponent("brain");
+    m_pLight = (CSpriteComponent*)FindSceneComponent("light");
+    m_pShadow = (CSpriteComponent*)FindSceneComponent("Shadow");
+    m_pOC = (CColliderOBB2D*)FindSceneComponent("IceBody");
+    m_pIceShadow = (CMesh2DComponent*)FindSceneComponent("IceShadow");
+    m_pRC = (CColliderRect*)FindSceneComponent("BrainBody");
+#ifdef _DEBUG
+    m_pDir = (CUIFont*)FindSceneComponent("Dir");
+    m_pFly = (CUIFont*)FindSceneComponent("Fly");
+#endif
+    m_pBGM = (CSound*)FindSceneComponent("BGM");
+    m_pEft = (CSound*)FindSceneComponent("Effect");
+
+    CScene* pScene = GET_SINGLE(CSceneManager)->GetScene();
+    m_pShadow->SetLayer(pScene->FindLayer("Temp"));
+
+    m_pRC->SetCallBack<CBrainFreeze>(COLLISION_STATE::INIT, this, &CBrainFreeze::ColInit);
+    m_pRC->SetCallBack<CBrainFreeze>(COLLISION_STATE::STAY, this, &CBrainFreeze::ColStay);
+    m_pRC->SetCallBack<CBrainFreeze>(COLLISION_STATE::END, this, &CBrainFreeze::ColEnd);
+
+    m_pOC->SetCallBack<CBrainFreeze>(COLLISION_STATE::INIT, this, &CBrainFreeze::ColInit);
+    m_pOC->SetCallBack<CBrainFreeze>(COLLISION_STATE::STAY, this, &CBrainFreeze::ColStay);
+    m_pOC->SetCallBack<CBrainFreeze>(COLLISION_STATE::END, this, &CBrainFreeze::ColEnd);
 }
 
 void CBrainFreeze::RotX(float fScale, float fTime)
@@ -1132,25 +1208,27 @@ void CBrainFreeze::ColInit(CCollider* pSrc, CCollider* pDst, float fTime)
     {
         if (strSrc == "IceBody")
         {
-            State eStat = GetState();
-            if (eStat == State::IDLE)
+            if (((CBullet*)pDst->GetObj())->GetSpeed())
             {
-                SetState(State::ATTACK);
+                State eStat = GetState();
+                if (eStat == State::IDLE)
+                {
+                    SetState(State::ATTACK);
 
-                ((CTileMode*)m_pScene->GetGameMode())->Lock(true);
-            }
+                    ((CTileMode*)m_pScene->GetGameMode())->Lock(true);
+                }
 
-            else if (((CBullet*)pDst->GetObj())->IsFire())
-            {
-                m_bMelt = true;
-                m_pOC->Enable(false);
-                m_vAccel = Vector3::Zero;
-                m_vSpeed = Vector3::Zero;
-                m_pRC->Enable(true);
+                else if (((CBullet*)pDst->GetObj())->IsFire())
+                {
+                    m_bMelt = true;
 
-                m_pEft->SetSound("Melt");
-                m_pEft->SetVol(1.f);
-                m_pEft->Play(fTime);
+                    m_pOC->Enable(false);
+                    m_vAccel = Vector3::Zero;
+                    m_vSpeed = Vector3::Zero;
+                    m_pRC->Enable(true);
+
+                    m_pEft->SetSoundAndPlay("Melt");
+                }
             }
         }
 
@@ -1164,46 +1242,49 @@ void CBrainFreeze::ColInit(CCollider* pSrc, CCollider* pDst, float fTime)
 
                 if (fSpeed != 0.f)
                 {
-                    SetState(State::STOP);
-
-                    FADE tFade = {};
-
-                    tFade.fGray = 1.f;
-
-                    GET_SINGLE(CShaderManager)->UpdateCBuffer("Fade", &tFade);
-                    m_vAccel = Vector3::Zero;
-                    m_vSpeed = Vector3::Zero;
-
-                    pBullet->SetFix(true);
-                    pBullet->SetSpeed(0.f);
-                    pBullet->ChangeSprite("ArrowStop");
-                    pBullet->SetFixObj(this);
-
-                    Vector3 vRot = pBullet->GetWorldRot();
-
-                    CSound* pSnd = pBullet->FindComByType<CSound>();
-
-                    if (vRot.z < 135.f && vRot.x > 45.f)
+                    if (GetState() == State::ATTACK)
                     {
-                        pSnd->SetSound("ArrowImpact1");
-                    }
+                        SetState(State::STOP);
 
-                    else if (vRot.z > -45.f && vRot.x < 45.f)
-                    {
-                        pSnd->SetSound("ArrowImpact2");
-                    }
+                        FADE tFade = {};
 
-                    else if (vRot.z > -135.f && vRot.x < -45.f)
-                    {
-                        pSnd->SetSound("ArrowImpact3");
-                    }
+                        tFade.fGray = 1.f;
 
-                    else
-                    {
-                        pSnd->SetSound("ArrowImpact4");
-                    }
+                        GET_SINGLE(CShaderManager)->UpdateCBuffer("Fade", &tFade);
+                        m_vAccel = Vector3::Zero;
+                        m_vSpeed = Vector3::Zero;
 
-                    SAFE_RELEASE(pSnd);
+                        pBullet->SetFix(true);
+                        pBullet->SetSpeed(0.f);
+                        pBullet->ChangeSprite("ArrowStop");
+                        pBullet->SetFixObj(this);
+
+                        Vector3 vRot = pBullet->GetWorldRot();
+
+                        CSound* pSnd = pBullet->FindComByType<CSound>();
+
+                        if (vRot.z < 135.f && vRot.x > 45.f)
+                        {
+                            pSnd->SetSound("ArrowImpact1");
+                        }
+
+                        else if (vRot.z > -45.f && vRot.x < 45.f)
+                        {
+                            pSnd->SetSound("ArrowImpact2");
+                        }
+
+                        else if (vRot.z > -135.f && vRot.x < -45.f)
+                        {
+                            pSnd->SetSound("ArrowImpact3");
+                        }
+
+                        else
+                        {
+                            pSnd->SetSound("ArrowImpact4");
+                        }
+
+                        SAFE_RELEASE(pSnd);
+                    }
                 }
 
             }
@@ -1234,6 +1315,7 @@ void CBrainFreeze::ColInit(CCollider* pSrc, CCollider* pDst, float fTime)
 
 void CBrainFreeze::ColStay(CCollider* pSrc, CCollider* pDst, float fTime)
 {
+
 }
 
 void CBrainFreeze::ColEnd(CCollider* pSrc, CCollider* pDst, float fTime)
@@ -1244,9 +1326,86 @@ void CBrainFreeze::NextBrain(float, float)
 {
     m_bMelt = true;
     m_pOC->Enable(false);
+    static bool bCheck = false;
+    if (!bCheck)
+    {
+        m_pBGM->SetSound("BrainA");
+        m_pBGM->Stop();
+        bCheck = true;
+    }
 }
 
 void CBrainFreeze::Cheat(float, float)
 {
     SetState(State::DIE);
+}
+
+void CBrainFreeze::SpawnWindow()
+{
+    if (ImGui::Begin("BrainFreeze"))
+    {
+        switch (m_eDir)
+        {
+        case DIR_8::U:
+            ImGui::Text("Dir: Up");
+            break;
+        case DIR_8::RU:
+            ImGui::Text("Dir: Right Up");
+            break;
+        case DIR_8::R:
+            ImGui::Text("Dir: Right");
+            break;
+        case DIR_8::RD:
+            ImGui::Text("Dir: Right Down");
+            break;
+        case DIR_8::D:
+            ImGui::Text("Dir: Down");
+            break;
+        case DIR_8::LD:
+            ImGui::Text("Dir: Left Down");
+            break;
+        case DIR_8::L:
+            ImGui::Text("Dir: Left");
+            break;
+        case DIR_8::LU:
+            ImGui::Text("Dir: Left Up");
+            break;
+        }
+        switch (m_eNextDir)
+        {
+        case DIR_8::U:
+            ImGui::Text("Next Dir: Up");
+            break;
+        case DIR_8::RU:
+            ImGui::Text("Next Dir: Right Up");
+            break;
+        case DIR_8::R:
+            ImGui::Text("Next Dir: Right");
+            break;
+        case DIR_8::RD:
+            ImGui::Text("Next Dir: Right Down");
+            break;
+        case DIR_8::D:
+            ImGui::Text("Next Dir: Down");
+            break;
+        case DIR_8::LD:
+            ImGui::Text("Next Dir: Left Down");
+            break;
+        case DIR_8::L:
+            ImGui::Text("Next Dir: Left");
+            break;
+        case DIR_8::LU:
+            ImGui::Text("Next Dir: Left Up");
+            break;
+        }
+        ImGui::SliderInt("Phase", &m_iPhase, 0, 5);
+        ImGui::SliderInt("Rot", &m_iRot, -180, 180);
+        ImGui::SliderFloat("Rotf", &m_fRot, -180.f, 180.f);
+        ImGui::SliderFloat4("PrevQuat", &m_vPrevQuat.x, -1.f, 1.f);
+        ImGui::SliderFloat4("NextQuat", &m_vNextQuat.x, -1.f, 1.f);
+        int iStat = (int)GetState();
+        ImGui::SliderInt("State", &iStat, (int)State::SLEEP, (int)State::END);
+        CSoulMonster::SetState((State)iStat);
+    }
+    ImGui::End();
 }

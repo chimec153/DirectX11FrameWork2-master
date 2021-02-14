@@ -46,7 +46,7 @@ bool CColliderOBB2D::Init()
 		return false;
 
 #ifdef _DEBUG
-	m_pMesh =GET_SINGLE(CResourceManager)->FindMesh("Collider2D");
+	m_pDebugMesh = (CMesh2D*)GET_SINGLE(CResourceManager)->FindMesh("Collider2D");
 #endif
 
 	return true;
@@ -138,11 +138,20 @@ CColliderOBB2D* CColliderOBB2D::Clone()
 void CColliderOBB2D::Save(FILE* pFile)
 {
 	CCollider::Save(pFile);
+
+	fwrite(&m_tInfo, sizeof(m_tInfo), 1, pFile);
 }
 
 void CColliderOBB2D::Load(FILE* pFile)
 {
 	CCollider::Load(pFile);
+
+	fread(&m_tInfo, sizeof(m_tInfo), 1, pFile);
+
+#ifdef _DEBUG
+	m_pDebugMesh = (CMesh2D*)GET_SINGLE(CResourceManager)->FindMesh("Collider2D");
+#endif
+
 }
 
 bool CColliderOBB2D::Collision(CCollider* pDest)

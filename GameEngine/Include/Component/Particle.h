@@ -12,7 +12,6 @@ private:
     virtual ~CParticle();
 
 private:
-    class CShader*  m_pShader;
     class CComputeShader* m_pUpdateShader;
     std::vector<class CParticleSystem*>   m_vecParticle;
     float           m_fSpawnTime;

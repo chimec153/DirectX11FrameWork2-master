@@ -10,7 +10,7 @@ public:
 
 private:
 	float						m_fDist;
-	float						m_fLimitDist;
+	float						m_fLimitSpeed;
 	float						m_fSpeed;
 	class CSpriteComponent* m_pMesh;
 	class CTileMap* m_pMap;
@@ -21,24 +21,30 @@ private:
 	bool	m_bFixed;
 	class CObj* m_pFixingObj;
 	class CTileMap* m_pMtrlMap;
+	float		m_fAddSpeed;
+	bool		m_bInit;
 
 public:
-	void SetLimitDist(float fDist)
-	{
-		m_fLimitDist = fDist;
-
-		if (m_fLimitDist >= 700.f)
-			m_fLimitDist = 700.f;
-	}
 
 	void SetSpeed(float fSpeed)
 	{
 		m_fSpeed = fSpeed;
+
+		if (m_fSpeed >= m_fLimitSpeed)
+			m_fSpeed = m_fLimitSpeed;
 	}
 
 	float GetSpeed()	const
 	{
 		return m_fSpeed;
+	}
+
+	void AddSpeed(float fSpeed)
+	{
+		m_fSpeed += fSpeed;
+
+		if (m_fSpeed >= m_fLimitSpeed)
+			m_fSpeed = m_fLimitSpeed;
 	}
 
 	void SetDist(float fDist)
@@ -85,5 +91,8 @@ public:
 	void ColInit(class CCollider* pSrc, class CCollider* pDest, float fTime);
 	void ColStay(class CCollider* pSrc, class CCollider* pDest, float fTime);
 	void ColEnd(class CCollider* pSrc, class CCollider* pDest, float fTime);
+
+public:
+	void SpawnWindow();
 };
 

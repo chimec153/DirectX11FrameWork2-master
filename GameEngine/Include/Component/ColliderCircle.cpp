@@ -45,7 +45,7 @@ bool CColliderCircle::Init()
 		return false;
 
 #ifdef _DEBUG
-	m_pMesh = GET_SINGLE(CResourceManager)->FindMesh("Circle2D");
+	m_pDebugMesh = (CMesh2D*)GET_SINGLE(CResourceManager)->FindMesh("Circle2D");
 #endif
 
 	return true;
@@ -101,11 +101,19 @@ CColliderCircle* CColliderCircle::Clone()
 void CColliderCircle::Save(FILE* pFile)
 {
 	CCollider::Save(pFile);
+
+	fwrite(&m_tInfo, sizeof(m_tInfo), 1, pFile);
 }
 
 void CColliderCircle::Load(FILE* pFile)
 {
 	CCollider::Load(pFile);
+
+	fread(&m_tInfo, sizeof(m_tInfo), 1, pFile);
+
+#ifdef _DEBUG
+	m_pDebugMesh = (CMesh2D*)GET_SINGLE(CResourceManager)->FindMesh("Circle2D");
+#endif
 }
 
 bool CColliderCircle::Collision(CCollider* pDest)

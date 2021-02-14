@@ -5,8 +5,7 @@
 #include "Texture.h"
 #include "../Device.h"
 
-CMaterial::CMaterial()	:
-	m_pShader(nullptr)
+CMaterial::CMaterial()
 {
 	memset(&m_tCBuffer, 0, sizeof(ShaderCBuffer));
 	m_tCBuffer.vDif = Vector4::White;
@@ -20,10 +19,10 @@ CMaterial::CMaterial(const CMaterial& material)	:
 {
 	m_tCBuffer = material.m_tCBuffer;
 
-	m_pShader = material.m_pShader;
+	/*m_pShader = material.m_pShader;
 
 	if (m_pShader)
-		m_pShader->AddRef();
+		m_pShader->AddRef();*/
 
 	m_vecTexture.clear();
 
@@ -44,7 +43,7 @@ CMaterial::CMaterial(const CMaterial& material)	:
 
 CMaterial::~CMaterial()
 {
-	SAFE_RELEASE(m_pShader);
+	//SAFE_RELEASE(m_pShader);
 
 	size_t iSize = m_vecTexture.size();
 
@@ -187,6 +186,9 @@ void CMaterial::SetTextureFromFullPath(REGISTER_TYPE eType, const std::string& s
 
 const Vector2 CMaterial::GetTextureSize(int idx)
 {
+	if (idx >= (int)m_vecTexture.size())
+		return Vector2();
+
 	return Vector2((float)m_vecTexture[idx]->pTexture->GetWidth(), 
 		(float)m_vecTexture[idx]->pTexture->GetHeigth());
 }
@@ -200,12 +202,9 @@ const Vector4& CMaterial::GetDif() const
 {
 	return m_tCBuffer.vDif;
 }
-
-void CMaterial::SetShader(const std::string& strName)
+const Vector4& CMaterial::GetAmb() const
 {
-	SAFE_RELEASE(m_pShader);
-
-	m_pShader = GET_SINGLE(CShaderManager)->FindShader(strName);
+	return m_tCBuffer.vAmp;
 }
 
 void CMaterial::SetDiffuseColor(const Vector4& v)
@@ -245,9 +244,6 @@ void CMaterial::SetGray(bool bGray)
 
 void CMaterial::SetMaterial()
 {
-	if (m_pShader)
-		m_pShader->SetShader();
-
 	GET_SINGLE(CShaderManager)->UpdateCBuffer("Material", &m_tCBuffer);
 
 	size_t iSize = m_vecTexture.size();
@@ -263,44 +259,49 @@ CMaterial* CMaterial::Clone()
 
 void CMaterial::Save(FILE* pFile)
 {
-	bool bShader = false;
+	CRef::Save(pFile);
 
-	if (m_pShader)
-		bShader = true;
+	fwrite(&m_tCBuffer, sizeof(ShaderCBuffer), 1, pFile);
 
-	fwrite(&bShader, 1, 1, pFile);
+	int iSize = (int)m_vecTexture.size();
 
-	if (m_pShader)
+	fwrite(&iSize, 4, 1, pFile);
+
+	for (int i = 0; i < iSize; i++)
 	{
-		int iLength = (int)m_pShader->GetName().length();
-
+		std::string strTag = m_vecTexture[i]->pTexture->GetName();
+		int iLength = (int)strTag.length();
 		fwrite(&iLength, 4, 1, pFile);
-		fwrite(m_pShader->GetName().c_str(), 1, iLength, pFile);
+		fwrite(strTag.c_str(), 1, iLength, pFile);
+		fwrite(&m_vecTexture[i]->iType, 4, 1, pFile);
+		fwrite(&m_vecTexture[i]->iCount, 4, 1, pFile);
+		fwrite(&m_vecTexture[i]->iRegister, 4, 1, pFile);
 	}
-
-	fwrite(&m_tCBuffer.vDif, sizeof(Vector4), 1, pFile);
-	fwrite(&m_tCBuffer.vAmp, sizeof(Vector4), 1, pFile);
-	fwrite(&m_tCBuffer.vSpe, sizeof(Vector4), 1, pFile);
 }
 
 void CMaterial::Load(FILE* pFile)
 {
-	bool bShader = false;
+	CRef::Load(pFile);
 
-	fread(&bShader, 1, 1, pFile);
+	fread(&m_tCBuffer, sizeof(ShaderCBuffer), 1, pFile);
 
-	if (bShader)
+	int iSize = 0;
+
+	fread(&iSize, 4, 1, pFile);
+
+	for (int i = 0; i < iSize; i++)
 	{
-		int iLength = 0;
-		char strTag[256] = {};
+		PMaterialTexture pMatTex = new MaterialTexture;
 
+		char strTag[256] = {};
+		int iLength = 0;
 		fread(&iLength, 4, 1, pFile);
 		fread(strTag, 1, iLength, pFile);
+		pMatTex->pTexture = GET_SINGLE(CResourceManager)->FindTexture(strTag);
+		fread(&pMatTex->iType, 4, 1, pFile);
+		fread(&pMatTex->iCount, 4, 1, pFile);
+		fread(&pMatTex->iRegister, 4, 1, pFile);
 
-		SetShader(strTag);
+		m_vecTexture.push_back(pMatTex);
 	}
-
-	fread(&m_tCBuffer.vDif, sizeof(Vector4), 1, pFile);
-	fread(&m_tCBuffer.vAmp, sizeof(Vector4), 1, pFile);
-	fread(&m_tCBuffer.vSpe, sizeof(Vector4), 1, pFile);
 }
